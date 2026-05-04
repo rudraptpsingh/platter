@@ -1,0 +1,223 @@
+mod db;
+mod scanner;
+mod watcher;
+
+use db::{Db, FileRow, RootRow};
+use std::path::PathBuf;
+use std::sync::Arc;
+use tauri::State;
+
+const DEFAULT_ROOTS: &[(&str, &str)] = &[
+    ("~/github/*/mockups/*", "github · mockups"),
+    ("~/github/*/.claude/worktrees/*/mockups/*", "github · worktree mockups"),
+    ("~/github/*/screenshots", "github · screenshots"),
+    ("~/github/*/artifacts", "github · artifacts"),
+];
+
+struct AppState {
+    db: Arc<Db>,
+}
+
+#[derive(serde::Serialize)]
+struct TreeNode {
+    label: String,
+    path: String,
+    count: i64,
+    mtime: i64,
+    children: Vec<TreeNode>,
+}
+
+#[tauri::command]
+fn list_tree(state: State<AppState>) -> Result<Vec<TreeNode>, String> {
+    let roots = state.db.list_roots().map_err(|e| e.to_string())?;
+    let mut tops: Vec<TreeNode> = Vec::new();
+
+    for root in roots.iter().filter(|r| r.enabled) {
+        let leaves = scanner::expand_glob(&root.glob);
+        let mut glob_count = 0i64;
+        let mut glob_mtime = 0i64;
+        let mut children: Vec<TreeNode> = Vec::new();
+        for dir in leaves {
+            let dir_str = dir.to_string_lossy().to_string();
+            let cnt = state.db.count_files_under(&dir_str).unwrap_or(0);
+            if cnt == 0 {
+                continue;
+            }
+            glob_count += cnt;
+            let leaf_mtime = state.db.max_mtime_under(&dir_str).unwrap_or(0);
+            if leaf_mtime > glob_mtime {
+                glob_mtime = leaf_mtime;
+            }
+            let label = nice_label(&dir);
+
+            let subs = state.db.list_subdirs(&dir_str).unwrap_or_default();
+            let mut sub_children: Vec<TreeNode> = subs
+                .into_iter()
+                .map(|(p, c)| {
+                    let mt = state.db.max_mtime_under(&p).unwrap_or(0);
+                    TreeNode {
+                        label: PathBuf::from(&p)
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or(p.clone()),
+                        path: p,
+                        count: c,
+                        mtime: mt,
+                        children: vec![],
+                    }
+                })
+                .collect();
+            sub_children.sort_by(|a, b| b.mtime.cmp(&a.mtime));
+
+            children.push(TreeNode {
+                label,
+                path: dir_str,
+                count: cnt,
+                mtime: leaf_mtime,
+                children: sub_children,
+            });
+        }
+        children.sort_by(|a, b| b.mtime.cmp(&a.mtime));
+        if !children.is_empty() {
+            tops.push(TreeNode {
+                label: root.label.clone(),
+                path: root.glob.clone(),
+                count: glob_count,
+                mtime: glob_mtime,
+                children,
+            });
+        }
+    }
+    tops.sort_by(|a, b| b.mtime.cmp(&a.mtime));
+    Ok(tops)
+}
+
+#[tauri::command]
+fn list_recent(limit: Option<i64>, state: State<AppState>) -> Result<Vec<db::FileRow>, String> {
+    state
+        .db
+        .list_recent(limit.unwrap_or(60))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn search_all(
+    query: String,
+    limit: Option<i64>,
+    state: State<AppState>,
+) -> Result<Vec<db::FileRow>, String> {
+    if query.trim().is_empty() {
+        return Ok(vec![]);
+    }
+    state
+        .db
+        .search_all(&query, limit.unwrap_or(120))
+        .map_err(|e| e.to_string())
+}
+
+fn nice_label(p: &std::path::Path) -> String {
+    // E.g. /Users/rp/github/Penova/mockups → "Penova / mockups"
+    let mut parts: Vec<String> = p
+        .components()
+        .rev()
+        .take(3)
+        .map(|c| c.as_os_str().to_string_lossy().to_string())
+        .collect();
+    parts.reverse();
+    parts.join(" / ")
+}
+
+#[tauri::command]
+fn list_files(dir: String, state: State<AppState>) -> Result<Vec<FileRow>, String> {
+    state.db.list_files_in_dir(&dir).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn list_roots(state: State<AppState>) -> Result<Vec<RootRow>, String> {
+    state.db.list_roots().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn decide(
+    path: String,
+    decision: String,
+    note: Option<String>,
+    state: State<AppState>,
+) -> Result<(), String> {
+    state
+        .db
+        .set_decision(&path, &decision, note.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn rescan(state: State<AppState>) -> Result<(), String> {
+    let db = state.db.clone();
+    std::thread::spawn(move || {
+        if let Ok(roots) = db.list_roots() {
+            for root in roots.iter().filter(|r| r.enabled) {
+                let _ = scanner::scan_root(&db, root.id, &root.glob);
+            }
+        }
+    });
+    Ok(())
+}
+
+#[tauri::command]
+fn read_text_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(path).map_err(|e| e.to_string())
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let db = Arc::new(Db::open(&db::db_path()).expect("open db"));
+
+    // Seed default roots on first launch
+    let existing = db.list_roots().unwrap_or_default();
+    if existing.is_empty() {
+        for (glob, label) in DEFAULT_ROOTS {
+            let _ = db.add_root(glob, label);
+        }
+    }
+
+    let initial_db = db.clone();
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .manage(AppState { db: db.clone() })
+        .invoke_handler(tauri::generate_handler![
+            list_tree,
+            list_files,
+            list_roots,
+            list_recent,
+            search_all,
+            decide,
+            rescan,
+            read_text_file,
+            read_file_bytes
+        ])
+        .setup(move |app| {
+            let app_handle = app.handle().clone();
+            let db_for_scan = initial_db.clone();
+            // Initial scan in a background thread
+            std::thread::spawn(move || {
+                if let Ok(roots) = db_for_scan.list_roots() {
+                    for root in roots.iter().filter(|r| r.enabled) {
+                        let _ = scanner::scan_root(&db_for_scan, root.id, &root.glob);
+                    }
+                }
+                let _ = tauri::Emitter::emit(&app_handle, "platter:scan-complete", ());
+            });
+
+            // Live watcher
+            let app_handle2 = app.handle().clone();
+            let _ = watcher::start_watcher(db.clone(), app_handle2);
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

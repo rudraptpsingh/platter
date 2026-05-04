@@ -1,0 +1,321 @@
+use anyhow::Result;
+use rusqlite::{params, Connection};
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+
+pub struct Db {
+    conn: Mutex<Connection>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct FileRow {
+    pub id: i64,
+    pub path: String,
+    pub root_id: i64,
+    pub kind: String,
+    pub size: i64,
+    pub mtime: i64,
+    pub created_at: i64,
+    pub last_seen: i64,
+    pub decision: Option<String>,
+    pub decision_note: Option<String>,
+    pub decided_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct RootRow {
+    pub id: i64,
+    pub glob: String,
+    pub label: String,
+    pub enabled: bool,
+}
+
+impl Db {
+    pub fn open(path: &Path) -> Result<Self> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).ok();
+        }
+        let conn = Connection::open(path)?;
+        conn.execute_batch(
+            r#"
+            PRAGMA journal_mode = WAL;
+            PRAGMA synchronous = NORMAL;
+            PRAGMA foreign_keys = ON;
+
+            CREATE TABLE IF NOT EXISTS roots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                glob TEXT NOT NULL UNIQUE,
+                label TEXT NOT NULL,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                added_at INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                path TEXT NOT NULL UNIQUE,
+                root_id INTEGER NOT NULL REFERENCES roots(id) ON DELETE CASCADE,
+                kind TEXT NOT NULL,
+                size INTEGER NOT NULL,
+                mtime INTEGER NOT NULL,
+                created_at INTEGER NOT NULL,
+                last_seen INTEGER NOT NULL,
+                decision TEXT,
+                decision_note TEXT,
+                decided_at INTEGER
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_files_root ON files(root_id);
+            CREATE INDEX IF NOT EXISTS idx_files_mtime ON files(mtime DESC);
+            "#,
+        )?;
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
+    }
+
+    pub fn add_root(&self, glob: &str, label: &str) -> Result<i64> {
+        let conn = self.conn.lock().unwrap();
+        let now = chrono::Utc::now().timestamp();
+        conn.execute(
+            "INSERT OR IGNORE INTO roots (glob, label, enabled, added_at) VALUES (?, ?, 1, ?)",
+            params![glob, label, now],
+        )?;
+        let id: i64 = conn.query_row(
+            "SELECT id FROM roots WHERE glob = ?",
+            params![glob],
+            |r| r.get(0),
+        )?;
+        Ok(id)
+    }
+
+    pub fn list_roots(&self) -> Result<Vec<RootRow>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, glob, label, enabled FROM roots ORDER BY added_at ASC",
+        )?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok(RootRow {
+                    id: r.get(0)?,
+                    glob: r.get(1)?,
+                    label: r.get(2)?,
+                    enabled: r.get::<_, i64>(3)? != 0,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    pub fn upsert_file(
+        &self,
+        path: &str,
+        root_id: i64,
+        kind: &str,
+        size: i64,
+        mtime: i64,
+    ) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = chrono::Utc::now().timestamp();
+        conn.execute(
+            r#"
+            INSERT INTO files (path, root_id, kind, size, mtime, created_at, last_seen)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(path) DO UPDATE SET
+                kind = excluded.kind,
+                size = excluded.size,
+                mtime = excluded.mtime,
+                last_seen = excluded.last_seen
+            "#,
+            params![path, root_id, kind, size, mtime, now, now],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_missing(&self, root_id: i64, since: i64) -> Result<usize> {
+        let conn = self.conn.lock().unwrap();
+        let n = conn.execute(
+            "DELETE FROM files WHERE root_id = ? AND last_seen < ?",
+            params![root_id, since],
+        )?;
+        Ok(n)
+    }
+
+    pub fn delete_file(&self, path: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM files WHERE path = ?", params![path])?;
+        Ok(())
+    }
+
+    pub fn list_files_in_dir(&self, dir: &str) -> Result<Vec<FileRow>> {
+        let pattern = format!("{}/%", dir.trim_end_matches('/'));
+        // Only direct children — no nested files
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT id, path, root_id, kind, size, mtime, created_at, last_seen,
+                   decision, decision_note, decided_at
+            FROM files
+            WHERE path LIKE ?
+              AND substr(path, length(?) + 2) NOT LIKE '%/%'
+            ORDER BY mtime DESC
+            "#,
+        )?;
+        let rows = stmt
+            .query_map(params![pattern, dir.trim_end_matches('/')], |r| {
+                Ok(FileRow {
+                    id: r.get(0)?,
+                    path: r.get(1)?,
+                    root_id: r.get(2)?,
+                    kind: r.get(3)?,
+                    size: r.get(4)?,
+                    mtime: r.get(5)?,
+                    created_at: r.get(6)?,
+                    last_seen: r.get(7)?,
+                    decision: r.get(8)?,
+                    decision_note: r.get(9)?,
+                    decided_at: r.get(10)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    pub fn list_subdirs(&self, dir: &str) -> Result<Vec<(String, i64)>> {
+        // Find unique direct subdirs of `dir` based on file paths
+        let pattern = format!("{}/%/%", dir.trim_end_matches('/'));
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT
+                substr(path, 1, length(?) + 1 + instr(substr(path, length(?) + 2), '/') - 1) AS subdir,
+                COUNT(*) AS cnt
+            FROM files
+            WHERE path LIKE ?
+            GROUP BY subdir
+            ORDER BY subdir ASC
+            "#,
+        )?;
+        let dir_clean = dir.trim_end_matches('/');
+        let rows = stmt
+            .query_map(params![dir_clean, dir_clean, pattern], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    pub fn count_files_under(&self, dir: &str) -> Result<i64> {
+        let pattern = format!("{}/%", dir.trim_end_matches('/'));
+        let conn = self.conn.lock().unwrap();
+        let n: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM files WHERE path LIKE ?",
+            params![pattern],
+            |r| r.get(0),
+        )?;
+        Ok(n)
+    }
+
+    pub fn max_mtime_under(&self, dir: &str) -> Result<i64> {
+        let pattern = format!("{}/%", dir.trim_end_matches('/'));
+        let conn = self.conn.lock().unwrap();
+        let n: i64 = conn
+            .query_row(
+                "SELECT COALESCE(MAX(mtime), 0) FROM files WHERE path LIKE ?",
+                params![pattern],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        Ok(n)
+    }
+
+    pub fn list_recent(&self, limit: i64) -> Result<Vec<FileRow>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT id, path, root_id, kind, size, mtime, created_at, last_seen,
+                   decision, decision_note, decided_at
+            FROM files
+            ORDER BY mtime DESC
+            LIMIT ?
+            "#,
+        )?;
+        let rows = stmt
+            .query_map(params![limit], |r| {
+                Ok(FileRow {
+                    id: r.get(0)?,
+                    path: r.get(1)?,
+                    root_id: r.get(2)?,
+                    kind: r.get(3)?,
+                    size: r.get(4)?,
+                    mtime: r.get(5)?,
+                    created_at: r.get(6)?,
+                    last_seen: r.get(7)?,
+                    decision: r.get(8)?,
+                    decision_note: r.get(9)?,
+                    decided_at: r.get(10)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    pub fn search_all(&self, query: &str, limit: i64) -> Result<Vec<FileRow>> {
+        let q = format!("%{}%", query.replace('%', "\\%").replace('_', "\\_"));
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT id, path, root_id, kind, size, mtime, created_at, last_seen,
+                   decision, decision_note, decided_at
+            FROM files
+            WHERE path LIKE ? ESCAPE '\'
+            ORDER BY mtime DESC
+            LIMIT ?
+            "#,
+        )?;
+        let rows = stmt
+            .query_map(params![q, limit], |r| {
+                Ok(FileRow {
+                    id: r.get(0)?,
+                    path: r.get(1)?,
+                    root_id: r.get(2)?,
+                    kind: r.get(3)?,
+                    size: r.get(4)?,
+                    mtime: r.get(5)?,
+                    created_at: r.get(6)?,
+                    last_seen: r.get(7)?,
+                    decision: r.get(8)?,
+                    decision_note: r.get(9)?,
+                    decided_at: r.get(10)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    pub fn set_decision(
+        &self,
+        path: &str,
+        decision: &str,
+        note: Option<&str>,
+    ) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        let now = chrono::Utc::now().timestamp();
+        conn.execute(
+            "UPDATE files SET decision = ?, decision_note = ?, decided_at = ? WHERE path = ?",
+            params![decision, note, now, path],
+        )?;
+        Ok(())
+    }
+}
+
+pub fn db_path() -> PathBuf {
+    let base = dirs::data_dir()
+        .or_else(dirs::home_dir)
+        .unwrap_or_else(|| PathBuf::from("."));
+    base.join("platter").join("platter.db")
+}
