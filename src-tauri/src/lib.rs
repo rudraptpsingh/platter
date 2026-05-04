@@ -1,11 +1,15 @@
 mod db;
+mod mcp;
 mod scanner;
 mod watcher;
 
 use db::{Db, FileRow, RootRow};
+use mcp::{ReviewBus, ReviewDecision};
 use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{Emitter, State};
+
+pub use mcp::stdio::run as run_mcp_stdio;
 
 const DEFAULT_ROOTS: &[(&str, &str)] = &[
     ("~/github/*/mockups/*", "github · mockups"),
@@ -16,6 +20,7 @@ const DEFAULT_ROOTS: &[(&str, &str)] = &[
 
 struct AppState {
     db: Arc<Db>,
+    bus: Arc<ReviewBus>,
 }
 
 #[derive(serde::Serialize)]
@@ -173,9 +178,20 @@ fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
     std::fs::read(path).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn list_pending_reviews(state: State<AppState>) -> Vec<mcp::ReviewRequest> {
+    state.bus.list_pending()
+}
+
+#[tauri::command]
+fn resolve_review(decision: ReviewDecision, state: State<AppState>) -> Result<(), String> {
+    state.bus.resolve(decision)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let db = Arc::new(Db::open(&db::db_path()).expect("open db"));
+    let bus: Arc<ReviewBus> = Arc::new(ReviewBus::new());
 
     // Seed default roots on first launch
     let existing = db.list_roots().unwrap_or_default();
@@ -186,9 +202,14 @@ pub fn run() {
     }
 
     let initial_db = db.clone();
+    let bus_for_setup = bus.clone();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(AppState { db: db.clone() })
+        .manage(AppState {
+            db: db.clone(),
+            bus: bus.clone(),
+        })
         .invoke_handler(tauri::generate_handler![
             list_tree,
             list_files,
@@ -198,25 +219,42 @@ pub fn run() {
             decide,
             rescan,
             read_text_file,
-            read_file_bytes
+            read_file_bytes,
+            list_pending_reviews,
+            resolve_review
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
             let db_for_scan = initial_db.clone();
-            // Initial scan in a background thread
             std::thread::spawn(move || {
                 if let Ok(roots) = db_for_scan.list_roots() {
                     for root in roots.iter().filter(|r| r.enabled) {
                         let _ = scanner::scan_root(&db_for_scan, root.id, &root.glob);
                     }
                 }
-                let _ = tauri::Emitter::emit(&app_handle, "platter:scan-complete", ());
+                let _ = app_handle.emit("platter:scan-complete", ());
             });
 
             // Live watcher
             let app_handle2 = app.handle().clone();
             let _ = watcher::start_watcher(db.clone(), app_handle2);
+
+            // MCP review bus → emit Tauri event whenever a new review lands
+            let app_handle3 = app.handle().clone();
+            bus_for_setup.set_notifier(move |req| {
+                let _ = app_handle3.emit("platter:review-pending", req.clone());
+            });
+
+            // MCP socket listener (for stdio children spawned by Claude Code)
+            if let Err(e) = mcp::socket::spawn_listener(bus_for_setup.clone()) {
+                eprintln!("[platter] failed to start MCP socket: {e}");
+            }
             Ok(())
+        })
+        .on_window_event(move |_window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                bus.dismiss_all();
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

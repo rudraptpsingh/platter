@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import type { FileRow, TreeNode } from "../types";
+import type { FileRow, ReviewDecision, ReviewRequest, TreeNode } from "../types";
 
 export const api = {
   listTree: () => invoke<TreeNode[]>("list_tree"),
@@ -12,6 +12,9 @@ export const api = {
     invoke<void>("decide", { path, decision, note: note ?? null }),
   rescan: () => invoke<void>("rescan"),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
+  listPendingReviews: () => invoke<ReviewRequest[]>("list_pending_reviews"),
+  resolveReview: (decision: ReviewDecision) =>
+    invoke<void>("resolve_review", { decision }),
 };
 
 export function fileUrl(absolutePath: string): string {

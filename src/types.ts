@@ -24,3 +24,40 @@ export type Decision = "approved" | "rejected";
 
 export type FilterKind = "all" | "html" | "png" | "jpg" | "pdf" | "svg" | "md";
 export type FilterDecision = "all" | "approved" | "rejected" | "undecided";
+
+export type ReviewMode = "approve_reject" | "rank" | "pick_one";
+
+export type ReviewRequest = {
+  id: string;
+  paths: string[];
+  prompt: string | null;
+  mode: ReviewMode;
+  timeout_seconds: number;
+  context: Record<string, unknown> | null;
+  created_at: number;
+};
+
+export type DecisionKind =
+  | "approved"
+  | "rejected"
+  | "timeout"
+  | "dismissed"
+  | "picked"
+  | "ranked";
+
+export type PerItem = {
+  path: string;
+  verdict: string;
+  stars?: number;
+  note?: string;
+};
+
+export type ReviewDecision = {
+  id: string;
+  decision: DecisionKind;
+  picked?: string | null;
+  ranking?: string[] | null;
+  per_item?: PerItem[] | null;
+  note?: string | null;
+  decided_at: string;
+};

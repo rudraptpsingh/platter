@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
-import type { FileRow, FilterDecision, FilterKind, TreeNode } from "./types";
+import type { FileRow, FilterDecision, FilterKind, ReviewRequest, TreeNode } from "./types";
 import { api, basename, relativeTime } from "./lib/api";
 import { FolderTree } from "./components/FolderTree";
 import { Card } from "./components/Card";
 import { PreviewModal } from "./components/PreviewModal";
+import { ReviewModal } from "./components/ReviewModal";
 
 import "./styles/tokens.css";
 import "./styles/app.css";
@@ -23,6 +24,7 @@ export default function App() {
   const [filterKind, setFilterKind] = useState<FilterKind>("all");
   const [filterDecision, setFilterDecision] = useState<FilterDecision>("all");
   const [previewFile, setPreviewFile] = useState<FileRow | null>(null);
+  const [pendingReviews, setPendingReviews] = useState<ReviewRequest[]>([]);
   const [scanning, setScanning] = useState(true);
   const [lastScan, setLastScan] = useState(Date.now() / 1000);
 
@@ -49,7 +51,21 @@ export default function App() {
   useEffect(() => {
     refreshTree().then(() => setLastScan(Date.now() / 1000));
     refreshRecent();
+    api.listPendingReviews().then(setPendingReviews).catch(() => {});
   }, [refreshTree, refreshRecent]);
+
+  // Listen for new MCP review requests
+  useEffect(() => {
+    const unlisten = listen<ReviewRequest>("platter:review-pending", (event) => {
+      setPendingReviews((prev) => {
+        if (prev.some((p) => p.id === event.payload.id)) return prev;
+        return [...prev, event.payload];
+      });
+    });
+    return () => {
+      unlisten.then((u) => u());
+    };
+  }, []);
 
   // Re-fetch folder files when active path changes
   useEffect(() => {
@@ -232,13 +248,24 @@ export default function App() {
           </div>
         )}
 
-        {previewFile && (
+        {previewFile && pendingReviews.length === 0 && (
           <PreviewModal
             file={previewFile}
             siblings={filteredFiles}
             onClose={() => setPreviewFile(null)}
             onDecided={handleDecided}
             onNavigate={(f) => setPreviewFile(f)}
+          />
+        )}
+
+        {pendingReviews.length > 0 && (
+          <ReviewModal
+            request={pendingReviews[0]}
+            onClose={() =>
+              setPendingReviews((prev) =>
+                prev.filter((p) => p.id !== pendingReviews[0].id)
+              )
+            }
           />
         )}
       </main>
