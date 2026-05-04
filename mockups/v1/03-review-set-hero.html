@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>platter — review set hero</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="cards.css">
+<style>
+  .titlebar__center { font-size: 15px; }
+
+  .app-body--with-panel { grid-template-columns: 240px 1fr 300px; }
+
+  .toolbar { height: auto; padding: 12px 22px; gap: 14px; }
+  .toolbar__crumb { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .crumb__current { font-family: var(--font-display); font-style: italic; font-size: 16px; letter-spacing: -0.01em; color: var(--ink); }
+  .crumb__sub { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); letter-spacing: 0.02em; }
+  .review-set-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--vermilion-soft); color: var(--vermilion);
+    border: 0.5px solid var(--vermilion-line);
+    border-radius: 100px;
+    padding: 3px 9px;
+    font-family: var(--font-mono);
+    font-size: 9.5px; letter-spacing: 0.10em; text-transform: uppercase;
+    font-weight: 500;
+  }
+
+  /* Stage layout */
+  .stage {
+    flex: 1; min-height: 0;
+    overflow-y: auto;
+    padding: 22px;
+    background: var(--paper);
+    display: flex; flex-direction: column; gap: 22px;
+  }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    background: #FFFCF4;
+    box-shadow: 0 1px 2px rgba(27,23,20,0.05), 0 0 0 0.5px rgba(27,23,20,0.10);
+    display: flex; flex-direction: column;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--vermilion) 0%, #B58A3D 100%);
+    z-index: 3;
+  }
+  .hero__head {
+    display: flex; align-items: flex-end; gap: 16px;
+    padding: 16px 20px 12px;
+    border-bottom: 0.5px solid var(--line);
+  }
+  .hero__title-block { flex: 1; }
+  .hero__eyebrow {
+    font-family: var(--font-mono);
+    font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--vermilion);
+    margin-bottom: 4px;
+  }
+  .hero__title {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 28px; line-height: 1; letter-spacing: -0.02em;
+    color: var(--ink); margin: 0;
+  }
+  .hero__filename {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-3); margin-left: auto;
+  }
+  .hero__open {
+    font-family: var(--font-mono); font-size: 10px;
+    background: var(--ink); color: var(--paper);
+    padding: 5px 10px; border-radius: 100px;
+    display: inline-flex; align-items: center; gap: 5px;
+    cursor: pointer;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    border: 0;
+  }
+
+  /* Hero preview pane: an actual mini-render of the hub */
+  .hero__preview {
+    height: 360px;
+    background: var(--paper);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-mini {
+    padding: 32px 40px;
+    height: 100%;
+    background: var(--paper);
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 36px;
+    align-items: center;
+  }
+  .hero-mini__left {
+    border-right: 0.5px solid var(--line-strong);
+    padding-right: 32px;
+  }
+  .hero-mini__brand {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--ink-3);
+    margin-bottom: 14px;
+  }
+  .hero-mini__brand .dot { background: var(--vermilion); }
+  .hero-mini__h {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 56px; line-height: 0.9; letter-spacing: -0.03em;
+    margin: 0 0 14px;
+  }
+  .hero-mini__h em { color: var(--vermilion); }
+  .hero-mini__sub {
+    font-size: 11.5px; color: var(--ink-2); line-height: 1.55;
+    max-width: 280px;
+  }
+  .hero-mini__cards {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    height: 220px;
+  }
+  .hero-mini__card {
+    background: #FBF6E9;
+    border-radius: 6px;
+    border: 0.5px solid var(--line);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-mini__card::before {
+    content: attr(data-n);
+    position: absolute;
+    bottom: 4px; left: 5px;
+    font-family: var(--font-mono); font-size: 7.5px;
+    color: var(--ink-3);
+  }
+  .hero-mini__card--big {
+    grid-column: span 2; grid-row: span 2;
+    background: linear-gradient(135deg, #FBF6E9, #F4EFE5);
+  }
+
+  /* Children strip */
+  .strip {
+    background: rgba(27,23,20,0.03);
+    border: 0.5px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 14px 16px;
+  }
+  .strip__head {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 12px;
+  }
+  .strip__head .eyebrow { color: var(--ink-2); }
+  .strip__count {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-3);
+  }
+  .strip__row {
+    display: flex; gap: 12px; overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .strip__card {
+    flex: 0 0 168px;
+    background: #FFFCF4;
+    border-radius: var(--r);
+    border: 0.5px solid var(--line);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.18s var(--ease-out);
+  }
+  .strip__card:hover {
+    transform: translateY(-1px);
+    border-color: var(--vermilion-line);
+    box-shadow: 0 8px 22px rgba(27,23,20,0.08);
+  }
+  .strip__card--current {
+    border-color: var(--vermilion);
+    box-shadow: 0 0 0 2px var(--vermilion-soft);
+  }
+  .strip__thumb {
+    height: 100px;
+    background: var(--paper);
+    position: relative;
+    overflow: hidden;
+    font-size: 9px;
+  }
+  .strip__meta {
+    padding: 7px 9px;
+    border-top: 0.5px solid var(--line-soft);
+  }
+  .strip__num {
+    font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--vermilion);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+  .strip__name {
+    font-size: 11px; font-weight: 500; color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    margin-top: 1px;
+  }
+  .strip__sub {
+    font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--ink-3);
+    margin-top: 2px;
+  }
+
+  /* Tiny UI fakes for the strip thumbnails */
+  .stf-empty {
+    background: linear-gradient(180deg, #FFFEF8 0%, #F4EFE5 100%);
+    display: flex; align-items: center; justify-content: center;
+    padding: 12px;
+  }
+  .stf-empty__h { font-family: var(--font-display); font-style: italic; font-size: 16px; line-height: 1; }
+  .stf-grid {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    height: 100%;
+    background: #FFFEF8;
+    font-family: var(--font-mono); font-size: 5px;
+  }
+  .stf-grid__sb { background: rgba(27,23,20,0.04); border-right: 0.5px solid var(--line); }
+  .stf-grid__main { padding: 8px 6px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; align-content: start; }
+  .stf-grid__cell { background: #F4EFE5; border-radius: 2px; height: 22px; }
+  .stf-grid__cell--tall { height: 32px; }
+  .stf-modal {
+    background: var(--ink); padding: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--void-ink);
+    text-align: center;
+  }
+  .stf-modal__h { font-family: var(--font-display); font-style: italic; font-size: 12px; }
+  .stf-modal__btns { display: flex; gap: 4px; margin-top: 6px; }
+  .stf-modal__btn { font-family: var(--font-mono); font-size: 6px; padding: 2px 5px; border-radius: 100px; border: 0.5px solid currentColor; }
+  .stf-modal__btn--a { color: #6E7F58; border-color: #6E7F58; }
+  .stf-modal__btn--r { color: #C9472A; border-color: #C9472A; }
+  .stf-rank { background: #FFFCF4; padding: 8px; display: flex; flex-direction: column; gap: 3px; }
+  .stf-rank__row { background: #F4EFE5; height: 12px; border-radius: 2px; display: flex; align-items: center; padding: 0 4px; font-family: var(--font-mono); font-size: 6px; color: var(--ink-3); }
+  .stf-rank__row--1 { background: var(--vermilion-soft); }
+  .stf-pick { background: #FFFCF4; padding: 8px; display: flex; gap: 4px; align-items: center; height: 100%; }
+  .stf-pick__c { flex: 1; background: #F4EFE5; height: 60px; border-radius: 3px; }
+  .stf-pick__c--sel { box-shadow: 0 0 0 1.5px var(--vermilion); background: linear-gradient(135deg, #C9472A, #5A2E20); }
+  .stf-set { padding: 8px; background: #FFFCF4; }
+  .stf-set__row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 0.5px solid var(--line-soft); font-size: 6px; }
+  .stf-set__t { width: 14px; height: 8px; border-radius: 100px; background: #6E7F58; }
+
+  /* Plan side panel */
+  .plan-panel {
+    background: rgba(27,23,20,0.025);
+    border-left: 0.5px solid var(--line);
+    overflow-y: auto;
+    padding: 22px 22px 22px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+  .plan-panel__head {
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 0.5px solid var(--line);
+  }
+  .plan-panel .eyebrow { margin-bottom: 6px; }
+  .plan-panel__filename {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink); display: block;
+    margin-bottom: 4px;
+  }
+  .plan-panel__sub {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-3);
+  }
+  .plan-panel h1, .plan-panel h2, .plan-panel h3 {
+    font-family: var(--font-display); font-style: italic;
+    font-weight: 400;
+    color: var(--ink);
+    margin: 18px 0 8px;
+    letter-spacing: -0.01em;
+  }
+  .plan-panel h1 { font-size: 22px; line-height: 1.05; margin-top: 4px; }
+  .plan-panel h2 { font-size: 16px; }
+  .plan-panel h3 { font-size: 13.5px; }
+  .plan-panel p { margin: 0 0 10px; }
+  .plan-panel ul { margin: 0 0 12px; padding-left: 18px; }
+  .plan-panel li { margin-bottom: 4px; }
+  .plan-panel strong { color: var(--ink); font-weight: 600; }
+  .plan-panel code {
+    font-family: var(--font-mono); font-size: 11px;
+    background: rgba(27,23,20,0.06);
+    padding: 1px 5px; border-radius: 3px;
+  }
+
+  .sidebar { padding-bottom: 56px; }
+
+</style>
+</head>
+<body>
+<div class="desk">
+  <div class="window grain" style="height: 760px;">
+    <div class="titlebar">
+      <div class="traffic"><span class="close"></span><span class="min"></span><span class="max"></span></div>
+      <div class="titlebar__center">platter</div>
+      <div class="titlebar__right">
+        <button class="btn btn--ghost btn--icon"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M7 1v1.5M7 11.5V13M13 7h-1.5M2.5 7H1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+
+    <div class="app-body app-body--with-panel" style="height: calc(100% - 44px);">
+
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <ul class="tree">
+          <li class="tree__section">watched roots</li>
+
+          <!-- platter (active root) -->
+          <li class="tree__row">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 3.5C2 2.67 2.67 2 3.5 2H6l1.5 1.5h3a1.5 1.5 0 0 1 1.5 1.5v6.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V3.5z" stroke="currentColor" stroke-width="1.1"/></svg>
+            <span class="tree__label">platter</span>
+          </li>
+          <li class="tree__row tree__row--child">
+            <span class="tree__label">mockups</span>
+          </li>
+          <li class="tree__row tree__row--child2 tree__row--active">
+            <span class="tree__label">v1</span>
+            <span class="tree__count">10</span>
+            <span class="tree__new"></span>
+          </li>
+
+          <!-- Penova (collapsed) -->
+          <li class="tree__row" style="margin-top: 4px;">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 3.5C2 2.67 2.67 2 3.5 2H6l1.5 1.5h3a1.5 1.5 0 0 1 1.5 1.5v6.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V3.5z" stroke="currentColor" stroke-width="1.1"/></svg>
+            <span class="tree__label">Penova</span>
+            <span class="tree__count">28</span>
+          </li>
+          <li class="tree__row">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 3.5C2 2.67 2.67 2 3.5 2H6l1.5 1.5h3a1.5 1.5 0 0 1 1.5 1.5v6.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V3.5z" stroke="currentColor" stroke-width="1.1"/></svg>
+            <span class="tree__label">NG-OK</span>
+            <span class="tree__count">62</span>
+            <span class="tree__new"></span>
+          </li>
+          <li class="tree__row">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 3.5C2 2.67 2.67 2 3.5 2H6l1.5 1.5h3a1.5 1.5 0 0 1 1.5 1.5v6.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V3.5z" stroke="currentColor" stroke-width="1.1"/></svg>
+            <span class="tree__label">pranayoga</span>
+            <span class="tree__count">52</span>
+          </li>
+          <li class="tree__row">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 3.5C2 2.67 2.67 2 3.5 2H6l1.5 1.5h3a1.5 1.5 0 0 1 1.5 1.5v6.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V3.5z" stroke="currentColor" stroke-width="1.1"/></svg>
+            <span class="tree__label">ShotSelect</span>
+            <span class="tree__count">14</span>
+          </li>
+
+          <li class="tree__section" style="margin-top: 16px;">smart</li>
+          <li class="tree__row">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.1"/><path d="M7 4v3.2L9 9" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+            <span class="tree__label">recent</span>
+            <span class="tree__count">28</span>
+          </li>
+          <li class="tree__row">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 7l3-4 3 5 4-3" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="tree__label">awaiting decision</span>
+            <span class="tree__count">3</span>
+            <span class="tree__new"></span>
+          </li>
+        </ul>
+
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 16px; border-top: 0.5px solid var(--line); background: rgba(255,253,248,0.4); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); display: flex; align-items: center; gap: 8px; width: 240px;">
+          <span class="dot dot--sage" style="box-shadow: 0 0 0 3px rgba(110,127,88,0.18);"></span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 11px; font-weight: 500; color: var(--ink); letter-spacing: -0.005em;">claude · connected</div>
+            <div style="font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">platter design review</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <main class="main" style="display: flex; flex-direction: column;">
+        <div class="toolbar">
+          <div class="toolbar__crumb">
+            <span class="crumb">
+              <span>~/github</span>
+              <span class="crumb__sep">/</span>
+              <span>platter</span>
+              <span class="crumb__sep">/</span>
+              <span>mockups</span>
+              <span class="crumb__sep">/</span>
+              <span class="crumb__current">v1</span>
+            </span>
+            <span class="review-set-badge">
+              <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M3 3h8v3H3zM3 8h8v3H3z" fill="currentColor"/></svg>
+              review set
+            </span>
+            <span class="crumb__sub">10 items · index + 9 numbered · sibling plan detected</span>
+          </div>
+          <span class="spacer"></span>
+          <button class="btn btn--accent btn--lg" style="padding: 8px 16px; font-size: 12px;">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 2v6m0 0L4 5m3 3l3-3M3 11h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Hand to Claude for review
+          </button>
+        </div>
+
+        <div class="stage">
+          <!-- HERO: index.html -->
+          <article class="hero">
+            <div class="hero__head">
+              <div class="hero__title-block">
+                <div class="hero__eyebrow">★ promoted hub · spans the set</div>
+                <h2 class="hero__title">Mockups, v1.</h2>
+              </div>
+              <span class="hero__filename">index.html</span>
+              <button class="hero__open">Open ↗</button>
+            </div>
+            <div class="hero__preview">
+              <div class="hero-mini">
+                <div class="hero-mini__left">
+                  <div class="hero-mini__brand"><span class="dot"></span> platter · mockups · v1</div>
+                  <h1 class="hero-mini__h">Made for the<br><em>quiet</em> review.</h1>
+                  <div class="hero-mini__sub">Ten screens — empty state, populated grid, review-set hero, the live preview, three review modes, two settings panes, and the notification moment.</div>
+                </div>
+                <div class="hero-mini__cards">
+                  <div class="hero-mini__card hero-mini__card--big" data-n="01"></div>
+                  <div class="hero-mini__card" data-n="02"></div>
+                  <div class="hero-mini__card" data-n="03"></div>
+                  <div class="hero-mini__card" data-n="04"></div>
+                  <div class="hero-mini__card" data-n="05"></div>
+                  <div class="hero-mini__card" data-n="06"></div>
+                  <div class="hero-mini__card" data-n="07"></div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Children strip -->
+          <section class="strip">
+            <div class="strip__head">
+              <span class="eyebrow">numbered children · 9 of 9</span>
+              <span class="spacer"></span>
+              <span class="strip__count">scroll →</span>
+            </div>
+            <div class="strip__row">
+
+              <article class="strip__card">
+                <div class="strip__thumb stf-empty">
+                  <span class="stf-empty__h">Ready when<br>you are.</span>
+                </div>
+                <div class="strip__meta">
+                  <div class="strip__num">01</div>
+                  <div class="strip__name">empty-state.html</div>
+                  <div class="strip__sub">2h ago</div>
+                </div>
+              </article>
+
+              <article class="strip__card">
+                <div class="strip__thumb">
+                  <div class="stf-grid">
+                    <div class="stf-grid__sb"></div>
+                    <div class="stf-grid__main">
+                      <div class="stf-grid__cell stf-grid__cell--tall"></div>
+                      <div class="stf-grid__cell"></div>
+                      <div class="stf-grid__cell"></div>
+                      <div class="stf-grid__cell"></div>
+                      <div class="stf-grid__cell stf-grid__cell--tall"></div>
+                      <div class="stf-grid__cell"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="strip__meta">
+                  <div class="strip__num">02</div>
+                  <div class="strip__name">populated-main.html</div>
+                  <div class="strip__sub">1h ago · ✓ approved</div>
+                </div>
+              </article>
+
+              <article class="strip__card">
+                <div class="strip__thumb" style="background: linear-gradient(135deg, #FFFCF4, #F4EFE5); display: flex; padding: 8px; gap: 5px; align-items: center;">
+                  <div style="flex: 1.3; height: 70px; background: #FBF6E9; border-radius: 3px; border: 0.5px solid var(--line); border-top: 1.5px solid var(--vermilion);"></div>
+                  <div style="flex: 1; height: 56px; background: rgba(27,23,20,0.05); border-radius: 3px;"></div>
+                </div>
+                <div class="strip__meta">
+                  <div class="strip__num">03</div>
+                  <div class="strip__name">review-set-hero.html</div>
+                  <div class="strip__sub">just now · new</div>
+                </div>
+              </article>
+
+              <article class="strip__card">
+                <div class="strip__thumb" style="background: rgba(27,23,20,0.5); padding: 10px; display: flex; align-items: center; justify-content: center;">
+                  <div style="width: 70px; height: 60px; background: #FFFCF4; border-radius: 4px;"></div>
+                </div>
+                <div class="strip__meta">
+                  <div class="strip__num">04</div>
+                  <div class="strip__name">preview-modal.html</div>
+                  <div class="strip__sub">8m ago</div>
+                </div>
+              </article>
+
+              <article class="strip__card">
+                <div class="strip__thumb stf-modal">
+                  <div class="stf-modal__h">approve?</div>
+                  <div class="stf-modal__btns">
+                    <span class="stf-modal__btn stf-modal__btn--a">A · ✓</span>
+                    <span class="stf-modal__btn stf-modal__btn--r">R · ✕</span>
+                  </div>
+                </div>
+                <div class="strip__meta">
+                  <div class="strip__num">05</div>
+                  <div class="strip__name">approve-reject.html</div>
+                  <div class="strip__sub">8m ago</div>
+                </div>
+              </article>
+
+              <article class="strip__card">
+                <div class="strip__thumb stf-rank">
+                  <div class="stf-rank__row stf-rank__row--1">1 · variant A</div>
+                  <div class="stf-rank__row">2 · variant C</div>
+                  <div class="stf-rank__row">3 · variant B</div>
+                  <div class="stf-rank__row" style="opacity: 0.5;">— variant D</div>
+                </div>
+                <div class="strip__meta">
+                  <div class="strip__num">06</div>
+                  <div class="strip__name">rank.html</div>
+                  <div class="strip__sub">8m ago</div>
+                </div>
+              </article>
+
+              <article class="strip__card">
+                <div class="strip__thumb stf-pick">
+                  <div class="stf-pick__c"></div>
+                  <div class="stf-pick__c stf-pick__c--sel"></div>
+                  <div class="stf-pick__c"></div>
+                </div>
+                <div class="strip__meta">
+                  <div class="strip__num">07</div>
+                  <div class="strip__name">pick-one.html</div>
+                  <div class="strip__sub">8m ago</div>
+                </div>
+              </article>
+
+              <article class="strip__card">
+                <div class="strip__thumb stf-set">
+                  <div class="stf-set__row"><span style="font-family: monospace;">~/gh/*/mockups</span><span class="stf-set__t"></span></div>
+                  <div class="stf-set__row"><span style="font-family: monospace;">~/gh/*/screenshots</span><span class="stf-set__t"></span></div>
+                  <div class="stf-set__row"><span style="font-family: monospace;">~/gh/*/artifacts</span><span class="stf-set__t" style="background: rgba(27,23,20,0.2);"></span></div>
+                </div>
+                <div class="strip__meta">
+                  <div class="strip__num">08</div>
+                  <div class="strip__name">settings-roots.html</div>
+                  <div class="strip__sub">5m ago</div>
+                </div>
+              </article>
+
+              <article class="strip__card">
+                <div class="strip__thumb" style="background: var(--ink); padding: 10px; display: flex; flex-direction: column; gap: 4px; justify-content: center;">
+                  <div style="background: rgba(244,239,229,0.10); height: 12px; border-radius: 2px; padding: 0 5px; display: flex; align-items: center; font-family: monospace; font-size: 6px; color: #E8DFCD;">$ claude mcp add platter…</div>
+                  <div style="display: flex; gap: 4px; align-items: center; font-family: monospace; font-size: 6px; color: #6E7F58;"><span style="width: 4px; height: 4px; border-radius: 50%; background: #6E7F58;"></span>connected</div>
+                </div>
+                <div class="strip__meta">
+                  <div class="strip__num">09</div>
+                  <div class="strip__name">settings-claude.html</div>
+                  <div class="strip__sub">5m ago</div>
+                </div>
+              </article>
+
+              <article class="strip__card">
+                <div class="strip__thumb" style="background: linear-gradient(135deg, #1B1714, #3A2E22); padding: 8px; display: flex; align-items: flex-start; justify-content: flex-end;">
+                  <div style="background: rgba(244,239,229,0.95); border-radius: 6px; padding: 5px 7px; max-width: 110px; backdrop-filter: blur(8px);">
+                    <div style="font-family: monospace; font-size: 5.5px; letter-spacing: 0.1em; color: #C9472A; text-transform: uppercase;">claude · platter</div>
+                    <div style="font-size: 7.5px; color: var(--ink); font-weight: 600; margin-top: 1px;">3 mockups for review</div>
+                  </div>
+                </div>
+                <div class="strip__meta">
+                  <div class="strip__num">10</div>
+                  <div class="strip__name">notification.html</div>
+                  <div class="strip__sub">2m ago</div>
+                </div>
+              </article>
+
+            </div>
+          </section>
+
+        </div>
+      </main>
+
+      <!-- Plan side panel: rendered markdown of 00-design-notes.md -->
+      <aside class="plan-panel">
+        <div class="plan-panel__head">
+          <div class="eyebrow" style="color: var(--vermilion);">★ sibling plan · auto-detected</div>
+          <span class="plan-panel__filename">00-design-notes.md</span>
+          <span class="plan-panel__sub">2.4 kB · markdown · synced 2m ago</span>
+        </div>
+
+        <h1>Editorial gallery</h1>
+        <p>Asset review is a moment of judgment. A critic at a print room. An editor on a contact sheet. <strong>Not a file manager</strong>, not a chat sidebar.</p>
+
+        <h2>Type</h2>
+        <ul>
+          <li><strong>Display</strong> — Instrument Serif (italic). Used sparingly: <em>moments</em>.</li>
+          <li><strong>Body</strong> — SF system stack. Authentic Mac feel.</li>
+          <li><strong>Mono</strong> — JetBrains Mono. Paths and code only — a signal, not decoration.</li>
+        </ul>
+
+        <h2>Color</h2>
+        <p><strong>Paper</strong> <code>#F4EFE5</code> — warm off-white. Not pure white; pure white reads digital.</p>
+        <p><strong>Vermilion</strong> <code>#C9472A</code> — the single brand accent. Italian print-shop ink, archival stamp. Considered craft, not tech-startup.</p>
+        <p><strong>Sage</strong> <code>#6E7F58</code> for approve, <strong>brick</strong> <code>#A04428</code> for reject.</p>
+
+        <h2>Motion</h2>
+        <ul>
+          <li>One orchestrated reveal per screen. Staggered, never simultaneous.</li>
+          <li>Hover lifts are tiny: 1–2px translate.</li>
+          <li>Decisions are deliberate. 200ms fill — fast enough to feel responsive, slow enough that you don't accidentally stamp.</li>
+        </ul>
+
+        <h2>Departures from HIG</h2>
+        <p>Italic Instrument Serif for the prompt during review. Custom pill-shaped decision buttons in display type, not OS controls — a system button would erase the gravity of the moment.</p>
+      </aside>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

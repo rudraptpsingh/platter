@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>platter — notification moment</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  body { background: #1a1715; }
+
+  /* Faux desktop — wallpaper + dock */
+  .desktop {
+    width: 100%; min-height: 100vh;
+    height: 800px;
+    background:
+      radial-gradient(ellipse at 20% 25%, rgba(201,71,42,0.16) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 60%, rgba(110,127,88,0.10) 0%, transparent 55%),
+      linear-gradient(160deg, #2A1F18 0%, #0F0B08 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* macOS menu bar */
+  .menubar {
+    height: 30px;
+    background: rgba(20,17,13,0.55);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    border-bottom: 0.5px solid rgba(255,253,248,0.06);
+    display: flex; align-items: center;
+    padding: 0 18px;
+    color: var(--void-ink);
+    font-size: 13.5px;
+    gap: 18px;
+  }
+  .menubar__apple {
+    width: 16px; height: 16px;
+  }
+  .menubar__app {
+    font-weight: 600;
+  }
+  .menubar__items { display: flex; gap: 18px; opacity: 0.85; font-weight: 400; }
+  .menubar__right {
+    margin-left: auto;
+    display: flex; gap: 14px;
+    font-family: var(--font-mono); font-size: 11.5px;
+    opacity: 0.85;
+    align-items: center;
+  }
+  .menubar__platter {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 2px 8px; border-radius: 4px;
+    background: rgba(255,253,248,0.06);
+  }
+  .menubar__platter .dot { background: var(--vermilion); width: 6px; height: 6px; }
+
+  /* Dock */
+  .dock {
+    position: absolute;
+    bottom: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,253,248,0.16);
+    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(40px);
+    border: 0.5px solid rgba(255,253,248,0.20);
+    border-radius: 18px;
+    padding: 8px 14px;
+    display: flex; gap: 8px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  }
+  .dock-app {
+    width: 50px; height: 50px;
+    border-radius: 11px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    display: flex; align-items: center; justify-content: center;
+    color: white;
+    font-family: var(--font-display); font-style: italic;
+    font-size: 22px;
+    position: relative;
+  }
+  .dock-app[data-app="finder"] { background: linear-gradient(180deg, #6FB3F0, #2C7AC9); }
+  .dock-app[data-app="claude"] { background: linear-gradient(180deg, #D97757, #8B3D24); }
+  .dock-app[data-app="platter"] {
+    background: linear-gradient(180deg, var(--paper) 0%, var(--paper-3) 100%);
+    color: var(--ink);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.3), 0 0 0 1px rgba(27,23,20,0.15);
+    animation: bounce 1.2s var(--ease-spring) infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    20% { transform: translateY(-12px); }
+    40% { transform: translateY(0); }
+  }
+  .dock-app[data-app="terminal"] { background: #1B1714; color: #6E7F58; font-family: var(--font-mono); font-size: 14px; }
+  .dock-app[data-app="figma"] { background: linear-gradient(180deg, #2A2A2A, #0E0E0E); color: #F24E1E; }
+  .dock-app[data-app="vscode"] { background: linear-gradient(180deg, #2A7BC8, #1a4a82); color: white; }
+  .dock-app[data-app="safari"] { background: linear-gradient(180deg, #B6E2F8, #1B7DD9); }
+
+  .dock-app__indicator {
+    position: absolute;
+    bottom: -7px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: rgba(255,253,248,0.7);
+  }
+  .dock-app--running .dock-app__indicator { display: block; }
+  .dock-app__badge {
+    position: absolute;
+    top: -3px; right: -3px;
+    min-width: 18px; height: 18px;
+    border-radius: 100px;
+    background: var(--vermilion);
+    color: var(--paper);
+    font-family: var(--font-body);
+    font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 5px;
+    box-shadow: 0 0 0 1.5px rgba(20,17,13,0.4);
+  }
+
+  /* Background "app" — vague IDE/editor-looking thing */
+  .bg-window {
+    position: absolute;
+    top: 70px;
+    left: 80px;
+    width: 720px; height: 480px;
+    background: rgba(244,239,229,0.25);
+    border-radius: 12px;
+    border: 0.5px solid rgba(255,253,248,0.15);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+    opacity: 0.45;
+  }
+  .bg-window__header {
+    height: 38px;
+    background: rgba(20,17,13,0.3);
+    border-bottom: 0.5px solid rgba(255,253,248,0.08);
+    display: flex; align-items: center;
+    padding: 0 14px;
+  }
+  .bg-window__traffic { display: flex; gap: 7px; }
+  .bg-window__traffic span {
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    background: rgba(255,253,248,0.18);
+  }
+  .bg-window__body {
+    padding: 16px;
+    color: rgba(255,253,248,0.5);
+    font-family: var(--font-mono); font-size: 11px;
+    line-height: 1.7;
+  }
+  .bg-window__line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bg-window__line--vermilion { color: rgba(201,71,42,0.7); }
+  .bg-window__line--gold { color: rgba(181,138,61,0.7); }
+  .bg-window__line--sage { color: rgba(110,127,88,0.65); }
+
+  /* Notification banner */
+  .notification {
+    position: absolute;
+    top: 50px;
+    right: 16px;
+    width: 360px;
+    background: rgba(244,239,229,0.95);
+    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(40px);
+    border-radius: 14px;
+    box-shadow:
+      0 24px 60px rgba(0,0,0,0.4),
+      0 0 0 0.5px rgba(27,23,20,0.10),
+      inset 0 1px 0 rgba(255,255,255,0.5);
+    padding: 14px 16px;
+    overflow: hidden;
+    transform-origin: top right;
+    animation: slide-in 0.5s var(--ease-spring);
+  }
+  @keyframes slide-in {
+    from { transform: translateY(-20px) scale(0.96); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+  }
+
+  .notification::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--vermilion) 0%, var(--gold) 100%);
+  }
+
+  .notification__head {
+    display: flex; align-items: center; gap: 9px;
+    margin-bottom: 10px;
+    padding-bottom: 9px;
+    border-bottom: 0.5px solid rgba(27,23,20,0.10);
+  }
+  .notification__icon {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    background: var(--paper-2);
+    border: 0.5px solid rgba(27,23,20,0.10);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink);
+    font-family: var(--font-display); font-style: italic;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .notification__app {
+    font-size: 12px; font-weight: 600; color: var(--ink);
+    flex: 1;
+  }
+  .notification__app-sub {
+    font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--ink-3);
+    letter-spacing: 0.04em;
+    margin-top: 1px;
+  }
+  .notification__when {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-3);
+  }
+
+  .notification__body {
+    margin-bottom: 12px;
+  }
+  .notification__title {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 18px; line-height: 1.2; letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 0 0 4px;
+  }
+  .notification__desc {
+    font-size: 12px; line-height: 1.55;
+    color: var(--ink-2);
+  }
+  .notification__desc strong { color: var(--ink); font-weight: 600; }
+
+  .notification__meta {
+    display: flex; align-items: center; gap: 10px;
+    margin: 8px 0 0;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-3);
+    flex-wrap: wrap;
+  }
+  .notification__meta-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(27,23,20,0.06);
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-size: 10px;
+    color: var(--ink-2);
+    letter-spacing: 0.02em;
+  }
+  .notification__meta-pill--vermilion {
+    background: var(--vermilion-soft);
+    color: var(--vermilion);
+  }
+
+  .notification__actions {
+    display: flex; gap: 8px;
+    margin-top: 12px;
+  }
+  .notification__btn {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 0;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    transition: all 0.15s var(--ease-out);
+  }
+  .notification__btn--primary {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .notification__btn--primary:hover { background: var(--vermilion); }
+  .notification__btn--secondary {
+    background: rgba(27,23,20,0.06);
+    color: var(--ink-2);
+  }
+  .notification__btn--secondary:hover { background: rgba(27,23,20,0.12); }
+
+  /* Annotation labels (non-mockup) */
+  .annotations {
+    position: absolute;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .ann {
+    position: absolute;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: rgba(244,239,229,0.5);
+    letter-spacing: 0.05em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ann::before {
+    content: ''; width: 18px; height: 1px;
+    background: rgba(244,239,229,0.3);
+  }
+  .ann--right::before { order: 2; }
+  .ann--right { flex-direction: row; }
+
+  .ann-1 { top: 88px; right: 392px; }
+  .ann-2 { top: 740px; left: 50%; transform: translateX(-260px); }
+
+  /* Caption frame */
+  .caption {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20,17,13,0.0);
+    color: rgba(244,239,229,0.4);
+    font-family: var(--font-mono); font-size: 10.5px;
+    letter-spacing: 0.10em;
+    z-index: 5;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+<div class="desktop">
+
+  <!-- Caption -->
+  <div class="caption">claude calls present_mockups() · platter is in the background</div>
+
+  <!-- macOS menubar -->
+  <div class="menubar">
+    <svg class="menubar__apple" viewBox="0 0 16 16" fill="currentColor"><path d="M11.6 8.5c0-1.7 1.4-2.5 1.5-2.6-0.8-1.2-2.1-1.4-2.5-1.4-1.1-0.1-2.1 0.6-2.6 0.6-0.5 0-1.4-0.6-2.3-0.6-1.2 0-2.3 0.7-2.9 1.8-1.2 2.1-0.3 5.3 0.9 7 0.6 0.8 1.3 1.8 2.2 1.7 0.9 0 1.2-0.6 2.3-0.6 1.1 0 1.4 0.6 2.3 0.6 0.9 0 1.5-0.8 2.1-1.7 0.7-1 0.9-1.9 0.9-2 0-0-1.9-0.7-1.9-2.8zM10 3.4c0.5-0.6 0.8-1.4 0.7-2.2-0.7 0-1.5 0.5-2 1.1-0.4 0.5-0.8 1.3-0.7 2.1 0.8 0.1 1.5-0.4 2-1z"/></svg>
+    <span class="menubar__app">Claude Code</span>
+    <span class="menubar__items">
+      <span>File</span>
+      <span>Edit</span>
+      <span>View</span>
+      <span>Window</span>
+      <span>Help</span>
+    </span>
+    <span class="menubar__right">
+      <span class="menubar__platter"><span class="dot"></span> platter · 1</span>
+      <span>100%</span>
+      <span>⌖</span>
+      <span>Mon 16:42</span>
+    </span>
+  </div>
+
+  <!-- Background app (Claude Code-ish terminal) -->
+  <div class="bg-window">
+    <div class="bg-window__header">
+      <div class="bg-window__traffic"><span></span><span></span><span></span></div>
+    </div>
+    <div class="bg-window__body">
+      <div class="bg-window__line">$ claude</div>
+      <div class="bg-window__line bg-window__line--gold">> design the auth flow with three hero variants</div>
+      <div class="bg-window__line">⠋ generating mockups…</div>
+      <div class="bg-window__line bg-window__line--sage">  ✓ wrote ~/github/Penova/mockups/mac/hero-variant-A.html</div>
+      <div class="bg-window__line bg-window__line--sage">  ✓ wrote ~/github/Penova/mockups/mac/hero-variant-B.html</div>
+      <div class="bg-window__line bg-window__line--sage">  ✓ wrote ~/github/Penova/mockups/mac/hero-variant-C.html</div>
+      <div class="bg-window__line">⠋ calling platter.present_mockups({mode: "pick_one", paths: […]})</div>
+      <div class="bg-window__line bg-window__line--vermilion">⏳ awaiting human decision (timeout: 30 min)</div>
+      <div class="bg-window__line">&nbsp;</div>
+      <div class="bg-window__line">_</div>
+    </div>
+  </div>
+
+  <!-- Annotation -->
+  <div class="annotations">
+    <div class="ann ann-1">menu-bar dot · platter has work for you</div>
+    <div class="ann ann-2">dock icon bouncing · paper / vermilion accent</div>
+  </div>
+
+  <!-- The notification banner -->
+  <div class="notification">
+    <div class="notification__head">
+      <div class="notification__icon">p</div>
+      <div>
+        <div class="notification__app">platter</div>
+        <div class="notification__app-sub">via claude · auth-flow</div>
+      </div>
+      <div class="notification__when">now</div>
+    </div>
+
+    <div class="notification__body">
+      <h3 class="notification__title">Claude wants your review.</h3>
+      <p class="notification__desc">
+        <strong>3 hero variants</strong> for the Penova auth-flow task. Pick the one that wins, or rank them best-first.
+      </p>
+      <div class="notification__meta">
+        <span class="notification__meta-pill notification__meta-pill--vermilion">
+          <svg width="9" height="9" viewBox="0 0 14 14" fill="none"><path d="M7 3v8M3 7h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          pick_one
+        </span>
+        <span>~/github/Penova/mockups/mac</span>
+      </div>
+    </div>
+
+    <div class="notification__actions">
+      <button class="notification__btn notification__btn--secondary">Later</button>
+      <button class="notification__btn notification__btn--primary">
+        Review →
+      </button>
+    </div>
+  </div>
+
+  <!-- Dock -->
+  <div class="dock">
+    <div class="dock-app dock-app--running" data-app="finder">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <path d="M16 6c-3 4-6 7-6 12s3 8 6 8 6-3 6-8-3-8-6-12z" fill="rgba(255,255,255,0.9)"/>
+      </svg>
+      <span class="dock-app__indicator"></span>
+    </div>
+    <div class="dock-app dock-app--running" data-app="claude">
+      ✱
+      <span class="dock-app__indicator"></span>
+    </div>
+    <div class="dock-app dock-app--running" data-app="platter">
+      p
+      <span class="dock-app__indicator"></span>
+      <span class="dock-app__badge">1</span>
+    </div>
+    <div class="dock-app dock-app--running" data-app="terminal">
+      ⊟
+      <span class="dock-app__indicator"></span>
+    </div>
+    <div class="dock-app" data-app="vscode">⌬</div>
+    <div class="dock-app" data-app="figma">F</div>
+    <div class="dock-app" data-app="safari">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="13" fill="white" opacity="0.9"/>
+        <path d="M11 21l4-9 9-4-4 9-9 4z" fill="#D44C2A"/>
+      </svg>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

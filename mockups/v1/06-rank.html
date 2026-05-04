@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>platter — rank</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .titlebar { background: rgba(20,17,13,0.7); border-bottom-color: rgba(232,223,205,0.10); }
+  .titlebar__title, .titlebar__center { color: var(--void-ink); }
+  .titlebar__center { font-size: 15px; opacity: 0.85; }
+  .traffic span { box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.3); }
+
+  .void-stage {
+    height: calc(100% - 44px);
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(201,71,42,0.10) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 100%, rgba(110,127,88,0.06) 0%, transparent 50%),
+      var(--void);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    position: relative;
+  }
+  .void-stage::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/></svg>");
+    opacity: 0.05;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+
+  .review {
+    position: relative; z-index: 2;
+    width: 100%; max-width: 920px;
+    background: var(--paper);
+    border-radius: var(--r-2xl);
+    box-shadow:
+      0 60px 120px rgba(0,0,0,0.55),
+      0 0 0 0.5px rgba(255,253,248,0.06),
+      inset 0 1px 0 rgba(255,253,248,0.6);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    max-height: 100%;
+  }
+
+  .review__head {
+    padding: 14px 22px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 0.5px solid var(--line);
+  }
+  .claude-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--ink); color: var(--paper);
+    padding: 4px 10px; border-radius: 100px;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    font-weight: 500;
+  }
+  .claude-tag .dot { background: var(--vermilion); width: 5px; height: 5px; }
+  .context {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-3);
+  }
+  .context strong { color: var(--ink-2); font-weight: 500; }
+  .context__sep { opacity: 0.4; margin: 0 6px; }
+
+  .review__close {
+    margin-left: auto;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(27,23,20,0.06);
+    border: 0; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--ink-3);
+  }
+
+  /* Prompt */
+  .prompt-block {
+    padding: 22px 28px 16px;
+    text-align: center;
+  }
+  .prompt-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px; letter-spacing: 0.20em; text-transform: uppercase;
+    color: var(--vermilion);
+    margin-bottom: 10px;
+  }
+  .prompt {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 30px; line-height: 1.1; letter-spacing: -0.02em;
+    color: var(--ink); margin: 0;
+  }
+  .prompt-sub {
+    font-size: 12px; color: var(--ink-3);
+    margin-top: 8px;
+    font-family: var(--font-mono); letter-spacing: 0.05em;
+  }
+
+  /* Rank list */
+  .rank-list {
+    padding: 8px 22px 18px;
+    display: flex; flex-direction: column; gap: 8px;
+    overflow-y: auto;
+    flex: 1; min-height: 0;
+  }
+
+  .rank-item {
+    display: flex; align-items: center; gap: 14px;
+    background: #FFFCF4;
+    border: 0.5px solid var(--line);
+    border-radius: var(--r-lg);
+    padding: 12px 14px;
+    box-shadow: 0 1px 2px rgba(27,23,20,0.04);
+    transition: all 0.15s var(--ease-out);
+    cursor: grab;
+  }
+  .rank-item:hover { box-shadow: 0 4px 12px rgba(27,23,20,0.06); border-color: var(--line-strong); }
+  .rank-item--unranked { opacity: 0.6; background: transparent; }
+  .rank-item--unranked .rank-item__num { background: rgba(27,23,20,0.05); color: var(--ink-3); }
+  .rank-item--dragging { box-shadow: 0 18px 40px rgba(27,23,20,0.18); border-color: var(--vermilion-line); transform: scale(1.01); cursor: grabbing; }
+
+  .rank-item__handle {
+    color: var(--ink-4);
+    cursor: grab;
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 4px;
+  }
+  .rank-item__handle::before, .rank-item__handle::after {
+    content: ''; width: 14px; height: 1px; background: currentColor; box-shadow: 0 4px 0 currentColor, 0 8px 0 currentColor;
+  }
+  .rank-item__handle::after { display: none; }
+
+  .rank-item__num {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 28px; letter-spacing: -0.02em;
+    color: var(--vermilion);
+    min-width: 36px; text-align: center;
+    font-weight: 400;
+    line-height: 1;
+  }
+
+  .rank-item__thumb {
+    width: 88px;
+    height: 56px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    background: var(--paper-2);
+    overflow: hidden;
+    box-shadow: 0 0 0 0.5px var(--line-strong);
+  }
+
+  .rank-item__body { flex: 1; min-width: 0; }
+  .rank-item__name {
+    font-size: 13px; font-weight: 500;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .rank-item__meta {
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-3);
+  }
+
+  .rank-item__action {
+    display: flex; gap: 4px;
+  }
+  .rank-item__btn {
+    background: transparent;
+    border: 0.5px solid var(--line-strong);
+    border-radius: 4px;
+    padding: 4px 7px;
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--ink-3);
+    cursor: pointer;
+  }
+  .rank-item__btn:hover { background: rgba(27,23,20,0.06); color: var(--ink-2); }
+
+  /* Tiny thumbnail recipes */
+  .rt { width: 100%; height: 100%; }
+  .rt-a { background: linear-gradient(to bottom, #FFFEF8 0%, #F4EDDF 100%); padding: 6px 8px; font-family: var(--font-display); font-style: italic; font-size: 8px; }
+  .rt-b { background: var(--ink); color: var(--paper); padding: 6px 8px; font-family: var(--font-display); font-style: italic; font-size: 9px; position: relative; overflow: hidden; }
+  .rt-b::before { content: ''; position: absolute; right: -10px; top: -8px; width: 50px; height: 50px; background: radial-gradient(circle, var(--vermilion) 0%, transparent 70%); opacity: 0.7; }
+  .rt-c { background: linear-gradient(135deg, #C9472A, #5A2E20); }
+  .rt-d { background: #FFFDF6; padding: 6px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+  .rt-d__c { background: rgba(27,23,20,0.08); border-radius: 2px; }
+
+  /* Divider */
+  .rank-divider {
+    display: flex; align-items: center; gap: 12px;
+    padding: 4px 22px;
+    margin: 4px 0;
+  }
+  .rank-divider::before, .rank-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--line);
+  }
+  .rank-divider span {
+    font-family: var(--font-mono); font-size: 9.5px;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--ink-4);
+  }
+
+  /* Submit row */
+  .submit-row {
+    padding: 14px 22px 16px;
+    border-top: 0.5px solid var(--line);
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(27,23,20,0.025);
+  }
+  .submit-row__count {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-3);
+  }
+  .submit-row__count strong { color: var(--ink); font-weight: 500; }
+  .btn-submit {
+    margin-left: auto;
+    font-family: var(--font-display); font-style: italic;
+    font-size: 18px; letter-spacing: -0.01em;
+    padding: 9px 22px;
+    border-radius: 100px;
+    border: 1.5px solid var(--ink);
+    background: var(--ink); color: var(--paper);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .btn-submit__hint {
+    font-family: var(--font-mono); font-size: 10px; font-style: normal;
+    letter-spacing: 0.05em;
+    padding: 2px 6px; border: 0.5px solid currentColor; border-radius: 4px;
+    opacity: 0.8;
+  }
+
+  .keyhints {
+    padding: 10px 22px 12px;
+    background: rgba(27,23,20,0.05);
+    border-top: 0.5px solid var(--line);
+    display: flex; align-items: center; gap: 18px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-3);
+  }
+  .key { display: inline-flex; align-items: center; gap: 4px; }
+  .key kbd {
+    font-family: var(--font-mono);
+    background: rgba(255,253,248,0.7);
+    border: 0.5px solid var(--line-strong);
+    border-radius: 3px;
+    padding: 1px 5px; font-size: 9.5px;
+    color: var(--ink-2);
+  }
+
+  /* The dragging item demo */
+  .rank-item--lifted {
+    transform: translateY(-2px) scale(1.005);
+    box-shadow: 0 22px 48px rgba(27,23,20,0.18);
+    border-color: var(--vermilion-line);
+    background: #FFFCF4;
+    z-index: 5; position: relative;
+  }
+  .rank-item--lifted .rank-item__num {
+    color: var(--vermilion);
+  }
+  .insertion-line {
+    height: 2px;
+    background: var(--vermilion);
+    border-radius: 100px;
+    margin: -3px 0;
+    box-shadow: 0 0 0 4px rgba(201,71,42,0.18);
+    position: relative;
+  }
+  .insertion-line::before, .insertion-line::after {
+    content: ''; position: absolute; top: 50%; transform: translateY(-50%);
+    width: 8px; height: 8px; border-radius: 50%; background: var(--vermilion);
+  }
+  .insertion-line::before { left: -4px; }
+  .insertion-line::after { right: -4px; }
+</style>
+</head>
+<body>
+<div class="desk desk--centered desk--dark">
+  <div class="window grain" style="height: 760px; background: var(--void);">
+    <div class="titlebar">
+      <div class="traffic"><span class="close"></span><span class="min"></span><span class="max"></span></div>
+      <div class="titlebar__center">platter · review</div>
+    </div>
+
+    <div class="void-stage">
+      <div class="review">
+        <header class="review__head">
+          <span class="claude-tag"><span class="dot"></span> claude</span>
+          <span class="context">
+            <strong>hud-redesign</strong>
+            <span class="context__sep">·</span>
+            <span>NG-OK / mockups</span>
+            <span class="context__sep">·</span>
+            <span>opus 4.7 · session 22m</span>
+          </span>
+          <button class="review__close">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M3 11l8-8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </button>
+        </header>
+
+        <section class="prompt-block">
+          <div class="prompt-eyebrow">★ rank these — best first</div>
+          <h1 class="prompt">Which dashboard layout reads<br>fastest at a glance?</h1>
+          <div class="prompt-sub">drag to reorder · partial ranking allowed</div>
+        </section>
+
+        <div class="rank-list">
+
+          <!-- Item 1 — top spot, lifted (dragging demo) -->
+          <article class="rank-item rank-item--lifted">
+            <span class="rank-item__handle"></span>
+            <span class="rank-item__num">1</span>
+            <div class="rank-item__thumb">
+              <div class="rt rt-b">HUD<br>compact</div>
+            </div>
+            <div class="rank-item__body">
+              <div class="rank-item__name">02-hud-compact-pill.html</div>
+              <div class="rank-item__meta">8 min ago · 14 kB · viewed 3×</div>
+            </div>
+            <div class="rank-item__action">
+              <button class="rank-item__btn">★ 5</button>
+              <button class="rank-item__btn">open</button>
+            </div>
+          </article>
+
+          <!-- Drop indicator -->
+          <div class="insertion-line"></div>
+
+          <!-- Item 2 -->
+          <article class="rank-item">
+            <span class="rank-item__handle"></span>
+            <span class="rank-item__num">2</span>
+            <div class="rank-item__thumb">
+              <div class="rt rt-a">Dashboard<br>editorial</div>
+            </div>
+            <div class="rank-item__body">
+              <div class="rank-item__name">01-hud-editorial.html</div>
+              <div class="rank-item__meta">8 min ago · 18 kB · viewed 5×</div>
+            </div>
+            <div class="rank-item__action">
+              <button class="rank-item__btn">★ 4</button>
+              <button class="rank-item__btn">open</button>
+            </div>
+          </article>
+
+          <!-- Item 3 -->
+          <article class="rank-item">
+            <span class="rank-item__handle"></span>
+            <span class="rank-item__num">3</span>
+            <div class="rank-item__thumb">
+              <div class="rt rt-d">
+                <div class="rt-d__c"></div><div class="rt-d__c"></div>
+                <div class="rt-d__c"></div><div class="rt-d__c"></div>
+              </div>
+            </div>
+            <div class="rank-item__body">
+              <div class="rank-item__name">03-hud-grid-quadrants.html</div>
+              <div class="rank-item__meta">8 min ago · 12 kB · viewed 2×</div>
+            </div>
+            <div class="rank-item__action">
+              <button class="rank-item__btn">★ 3</button>
+              <button class="rank-item__btn">open</button>
+            </div>
+          </article>
+
+          <!-- Divider — unranked group -->
+          <div class="rank-divider"><span>unranked · drop to add</span></div>
+
+          <!-- Item unranked -->
+          <article class="rank-item rank-item--unranked">
+            <span class="rank-item__handle"></span>
+            <span class="rank-item__num">—</span>
+            <div class="rank-item__thumb">
+              <div class="rt rt-c"></div>
+            </div>
+            <div class="rank-item__body">
+              <div class="rank-item__name">04-hud-bold-saturated.html</div>
+              <div class="rank-item__meta">8 min ago · 11 kB · viewed 1×</div>
+            </div>
+            <div class="rank-item__action">
+              <button class="rank-item__btn">★</button>
+              <button class="rank-item__btn">open</button>
+            </div>
+          </article>
+
+          <article class="rank-item rank-item--unranked">
+            <span class="rank-item__handle"></span>
+            <span class="rank-item__num">—</span>
+            <div class="rank-item__thumb">
+              <div class="rt" style="background: linear-gradient(135deg, #6E7F58, #2E3A1E);"></div>
+            </div>
+            <div class="rank-item__body">
+              <div class="rank-item__name">05-hud-mono-sage.html</div>
+              <div class="rank-item__meta">7 min ago · 13 kB · not yet opened</div>
+            </div>
+            <div class="rank-item__action">
+              <button class="rank-item__btn">★</button>
+              <button class="rank-item__btn">open</button>
+            </div>
+          </article>
+
+        </div>
+
+        <div class="submit-row">
+          <span class="submit-row__count"><strong>3</strong> ranked · <span style="color: var(--ink-4);">2 unranked</span></span>
+          <button class="btn-submit">
+            Submit ranking
+            <span class="btn-submit__hint">⏎</span>
+          </button>
+        </div>
+
+        <footer class="keyhints">
+          <span class="key"><kbd>J</kbd>/<kbd>K</kbd> move focus</span>
+          <span class="key"><kbd>⇧</kbd>+<kbd>J/K</kbd> reorder</span>
+          <span class="key"><kbd>1</kbd>–<kbd>5</kbd> rate</span>
+          <span class="key"><kbd>⏎</kbd> submit</span>
+          <span style="margin-left: auto;" class="key"><kbd>esc</kbd> dismiss</span>
+        </footer>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

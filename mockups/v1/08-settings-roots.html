@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>platter — settings · watch roots</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .titlebar__center { font-size: 15px; }
+
+  .app-body--settings { grid-template-columns: 220px 1fr; }
+
+  /* Settings sidebar */
+  .settings-nav { padding: 14px 10px; }
+  .settings-nav .tree__section { padding: 12px 10px 6px; }
+  .settings-nav__row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--ink-2);
+    font-size: 12.5px;
+  }
+  .settings-nav__row:hover { background: rgba(27,23,20,0.04); }
+  .settings-nav__row--active { background: var(--ink); color: var(--paper); }
+  .settings-nav__row svg { opacity: 0.75; }
+
+  /* Main pane */
+  .pane {
+    flex: 1;
+    overflow-y: auto;
+    padding: 32px 40px 40px;
+    background: var(--paper);
+  }
+
+  .pane__head { margin-bottom: 28px; }
+  .pane__eyebrow { font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--vermilion); margin-bottom: 6px; }
+  .pane__title {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 38px; line-height: 1.05; letter-spacing: -0.02em;
+    margin: 0 0 10px;
+  }
+  .pane__lede {
+    font-size: 13.5px; line-height: 1.6;
+    color: var(--ink-2);
+    max-width: 560px;
+  }
+
+  .section { margin-bottom: 36px; }
+  .section__head {
+    display: flex; align-items: baseline; gap: 14px;
+    padding-bottom: 10px;
+    border-bottom: 0.5px solid var(--line);
+    margin-bottom: 12px;
+  }
+  .section__title {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 22px;
+    color: var(--ink);
+    margin: 0;
+  }
+  .section__count { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.04em; }
+  .section__action { margin-left: auto; }
+
+  /* Root row */
+  .root {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 18px;
+    background: #FBF8F0;
+    border: 0.5px solid var(--line);
+    border-radius: var(--r);
+    margin-bottom: 8px;
+    transition: all 0.15s var(--ease-out);
+  }
+  .root:hover { border-color: var(--line-strong); }
+  .root--off {
+    opacity: 0.5;
+    background: transparent;
+  }
+
+  .root__path {
+    flex: 1; min-width: 0;
+  }
+  .root__glob {
+    font-family: var(--font-mono); font-size: 13px;
+    color: var(--ink);
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .root__sub {
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-3);
+    margin-top: 4px;
+    display: flex; align-items: center; gap: 8px;
+    flex-wrap: wrap;
+  }
+  .root__sub-sep { opacity: 0.4; }
+
+  .root__badge {
+    background: var(--vermilion-soft);
+    color: var(--vermilion);
+    border-radius: 100px;
+    padding: 1px 7px;
+    font-family: var(--font-mono); font-size: 9.5px;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    font-weight: 500;
+  }
+  .root__badge--gold { background: rgba(181,138,61,0.12); color: #6E541F; }
+
+  .root__count {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 28px; line-height: 1; letter-spacing: -0.02em;
+    color: var(--ink); min-width: 44px; text-align: right;
+  }
+  .root__count-label {
+    font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.16em;
+    margin-top: 4px; text-align: right;
+  }
+
+  /* Toggle */
+  .toggle {
+    width: 38px; height: 22px;
+    border-radius: 100px;
+    background: var(--ink);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.18s var(--ease-out);
+  }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; right: 2px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--paper);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: all 0.18s var(--ease-out);
+  }
+  .toggle--off { background: rgba(27,23,20,0.18); }
+  .toggle--off::after { right: auto; left: 2px; }
+
+  /* More menu */
+  .root__more {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    border: 0;
+    background: transparent;
+    color: var(--ink-3);
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .root__more:hover { background: rgba(27,23,20,0.06); color: var(--ink); }
+
+  /* Add root */
+  .add-root {
+    background: transparent;
+    border: 1px dashed var(--line-strong);
+    border-radius: var(--r);
+    padding: 14px 18px;
+    width: 100%;
+    color: var(--ink-3);
+    cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-mono); font-size: 12px;
+    letter-spacing: 0.02em;
+    transition: all 0.15s var(--ease-out);
+  }
+  .add-root:hover { border-color: var(--vermilion); color: var(--vermilion); background: var(--vermilion-soft); }
+
+  /* Denylist chips */
+  .chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .chip {
+    background: rgba(27,23,20,0.06);
+    border-radius: 100px;
+    padding: 5px 12px 5px 14px;
+    font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--ink-2);
+    display: inline-flex; align-items: center; gap: 8px;
+    letter-spacing: -0.005em;
+  }
+  .chip__close {
+    color: var(--ink-3);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+  }
+  .chip__close:hover { color: var(--brick); }
+  .chip--add {
+    background: transparent;
+    border: 1px dashed var(--line-strong);
+    color: var(--ink-3);
+    cursor: pointer;
+    padding: 4px 12px;
+  }
+  .chip--add:hover { border-color: var(--vermilion); color: var(--vermilion); }
+
+  .denylist-help {
+    font-size: 12px; color: var(--ink-3); line-height: 1.55;
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(27,23,20,0.025);
+    border-radius: 6px;
+    border-left: 2px solid var(--vermilion);
+  }
+  .denylist-help code {
+    font-family: var(--font-mono); font-size: 11px;
+    background: rgba(27,23,20,0.06);
+    padding: 1px 5px; border-radius: 3px;
+    color: var(--ink-2);
+  }
+
+  /* Resolved leaves preview */
+  .leaves {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: rgba(27,23,20,0.025);
+    border-radius: 6px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--ink-2);
+    line-height: 1.7;
+  }
+  .leaves__head {
+    font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--ink-3); margin-bottom: 6px;
+  }
+
+  .pane-actions {
+    margin-top: 16px;
+    display: flex; gap: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="desk">
+  <div class="window grain" style="height: 760px;">
+    <div class="titlebar">
+      <div class="traffic"><span class="close"></span><span class="min"></span><span class="max"></span></div>
+      <div class="titlebar__center">platter · settings</div>
+    </div>
+
+    <div class="app-body app-body--settings" style="height: calc(100% - 44px);">
+      <!-- Settings sidebar -->
+      <aside class="sidebar settings-nav">
+        <div class="tree__section">settings</div>
+        <div class="settings-nav__row">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M7 1v1.5M7 11.5V13M13 7h-1.5M2.5 7H1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          General
+        </div>
+        <div class="settings-nav__row settings-nav__row--active">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 4h10v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4zM2 4l1.5-1.5h2L7 4" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+          Watch roots
+        </div>
+        <div class="settings-nav__row">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="4" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="10" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M6 7h2" stroke="currentColor" stroke-width="1.2"/></svg>
+          Claude
+        </div>
+        <div class="settings-nav__row">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2v10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Appearance
+        </div>
+        <div class="settings-nav__row">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="3" width="10" height="9" rx="1" stroke="currentColor" stroke-width="1.2"/><path d="M5 1v3M9 1v3M2 6h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Decisions &amp; history
+        </div>
+        <div class="settings-nav__row">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 3v6m-2-2l2 2 2-2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Updates
+        </div>
+
+        <div class="tree__section" style="margin-top: 18px;">about</div>
+        <div class="settings-nav__row">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M7 6v4M7 4v0.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          About platter
+        </div>
+      </aside>
+
+      <!-- Main pane -->
+      <main class="pane">
+        <div class="pane__head">
+          <div class="pane__eyebrow">★ folders to watch</div>
+          <h1 class="pane__title">Where to look.</h1>
+          <p class="pane__lede">Platter watches these folders for new mockups, screenshots, and documents. Each entry is a glob — it can match many actual folders. Toggle off the ones you don't need; nothing is permanent.</p>
+        </div>
+
+        <!-- Active roots section -->
+        <section class="section">
+          <div class="section__head">
+            <h2 class="section__title">Active roots</h2>
+            <span class="section__count">4 enabled · 2 paused · 113 files indexed</span>
+          </div>
+
+          <!-- Default root 1 -->
+          <div class="root">
+            <div class="root__path">
+              <div class="root__glob">~/github/*/mockups/</div>
+              <div class="root__sub">
+                <span class="root__badge">default</span>
+                <span>matches 11 folders</span>
+                <span class="root__sub-sep">·</span>
+                <span>scanned 8s ago</span>
+                <span class="root__sub-sep">·</span>
+                <span>watching</span>
+              </div>
+            </div>
+            <div>
+              <div class="root__count">82</div>
+              <div class="root__count-label">files</div>
+            </div>
+            <div class="toggle"></div>
+            <button class="root__more"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="3" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="11" cy="7" r="1" fill="currentColor"/></svg></button>
+          </div>
+
+          <!-- Default root 2 -->
+          <div class="root">
+            <div class="root__path">
+              <div class="root__glob">~/github/*/.claude/worktrees/*/mockups/</div>
+              <div class="root__sub">
+                <span class="root__badge">default</span>
+                <span>matches 3 folders</span>
+                <span class="root__sub-sep">·</span>
+                <span>scanned 12s ago</span>
+                <span class="root__sub-sep">·</span>
+                <span>watching</span>
+              </div>
+              <div class="leaves">
+                <div class="leaves__head">resolved leaves</div>
+                <div>~/github/NG-OK/.claude/worktrees/feat-hotkeys/mockups/</div>
+                <div>~/github/Penova/.claude/worktrees/lookbook-spring/mockups/</div>
+                <div>~/github/pranayoga/.claude/worktrees/morning-flow/mockups/</div>
+              </div>
+            </div>
+            <div>
+              <div class="root__count">17</div>
+              <div class="root__count-label">files</div>
+            </div>
+            <div class="toggle"></div>
+            <button class="root__more"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="3" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="11" cy="7" r="1" fill="currentColor"/></svg></button>
+          </div>
+
+          <!-- Default root 3 -->
+          <div class="root">
+            <div class="root__path">
+              <div class="root__glob">~/github/*/screenshots/</div>
+              <div class="root__sub">
+                <span class="root__badge">default</span>
+                <span>matches 4 folders</span>
+                <span class="root__sub-sep">·</span>
+                <span>scanned 8s ago</span>
+                <span class="root__sub-sep">·</span>
+                <span>watching</span>
+              </div>
+            </div>
+            <div>
+              <div class="root__count">34</div>
+              <div class="root__count-label">files</div>
+            </div>
+            <div class="toggle"></div>
+            <button class="root__more"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="3" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="11" cy="7" r="1" fill="currentColor"/></svg></button>
+          </div>
+
+          <!-- Default root 4 -->
+          <div class="root">
+            <div class="root__path">
+              <div class="root__glob">~/github/*/artifacts/</div>
+              <div class="root__sub">
+                <span class="root__badge">default</span>
+                <span>matches 2 folders</span>
+                <span class="root__sub-sep">·</span>
+                <span>scanned 6s ago</span>
+                <span class="root__sub-sep">·</span>
+                <span>watching</span>
+              </div>
+            </div>
+            <div>
+              <div class="root__count">52</div>
+              <div class="root__count-label">files</div>
+            </div>
+            <div class="toggle"></div>
+            <button class="root__more"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="3" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="11" cy="7" r="1" fill="currentColor"/></svg></button>
+          </div>
+
+          <!-- Custom root (off) -->
+          <div class="root root--off">
+            <div class="root__path">
+              <div class="root__glob">~/Downloads/</div>
+              <div class="root__sub">
+                <span class="root__badge root__badge--gold">manual</span>
+                <span>matches 1 folder</span>
+                <span class="root__sub-sep">·</span>
+                <span>paused — too noisy</span>
+              </div>
+            </div>
+            <div>
+              <div class="root__count">—</div>
+              <div class="root__count-label">paused</div>
+            </div>
+            <div class="toggle toggle--off"></div>
+            <button class="root__more"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="3" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="11" cy="7" r="1" fill="currentColor"/></svg></button>
+          </div>
+
+          <!-- Custom root (on) -->
+          <div class="root">
+            <div class="root__path">
+              <div class="root__glob">~/Desktop/scratch-mockups/</div>
+              <div class="root__sub">
+                <span class="root__badge root__badge--gold">manual</span>
+                <span>matches 1 folder</span>
+                <span class="root__sub-sep">·</span>
+                <span>scanned 8s ago</span>
+              </div>
+            </div>
+            <div>
+              <div class="root__count">9</div>
+              <div class="root__count-label">files</div>
+            </div>
+            <div class="toggle"></div>
+            <button class="root__more"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="3" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="11" cy="7" r="1" fill="currentColor"/></svg></button>
+          </div>
+
+          <button class="add-root">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 3v8M3 7h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            Add a root… <span style="opacity: 0.5;">— path or glob</span>
+          </button>
+        </section>
+
+        <!-- Denylist section -->
+        <section class="section">
+          <div class="section__head">
+            <h2 class="section__title">Denylist</h2>
+            <span class="section__count">never index files inside these</span>
+          </div>
+
+          <div class="chips">
+            <span class="chip">node_modules <span class="chip__close">×</span></span>
+            <span class="chip">.next <span class="chip__close">×</span></span>
+            <span class="chip">.git <span class="chip__close">×</span></span>
+            <span class="chip">dist <span class="chip__close">×</span></span>
+            <span class="chip">build <span class="chip__close">×</span></span>
+            <span class="chip">target <span class="chip__close">×</span></span>
+            <span class="chip">.venv <span class="chip__close">×</span></span>
+            <span class="chip">.cache <span class="chip__close">×</span></span>
+            <span class="chip">coverage <span class="chip__close">×</span></span>
+            <span class="chip chip--add">+ add</span>
+          </div>
+
+          <div class="denylist-help">
+            Platter also ignores build artifacts inside watched folders by default — <code>.css</code>, <code>.js</code>, <code>.json</code>, <code>.lock</code>, dotfiles. Surfaced kinds: <code>html</code>, <code>png</code>, <code>jpg</code>, <code>svg</code>, <code>pdf</code>, <code>gif</code>, <code>webp</code>. Markdown becomes a "plan" when it sits beside visual files.
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+</div>
+</body>
+</html>

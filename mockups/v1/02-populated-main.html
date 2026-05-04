@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>platter — populated main</title>
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="cards.css">
+<style>
+  /* Specifics for this screen */
+  .titlebar__center { font-size: 15px; }
+
+  /* Two-row toolbar — top: location + global controls, sub: filters */
+  .toolbar { height: auto; padding: 12px 22px 0; flex-wrap: wrap; gap: 14px; align-items: stretch; }
+  .toolbar__top { display: flex; align-items: center; gap: 14px; width: 100%; }
+  .toolbar__sub {
+    display: flex; align-items: center; gap: 14px;
+    width: 100%;
+    padding: 10px 0 12px;
+    border-top: 0.5px solid var(--line-soft);
+    margin-top: 8px;
+  }
+
+  .toolbar__crumb { display: flex; align-items: center; gap: 6px; }
+  .crumb { font-size: 12.5px; }
+  .crumb__current {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+  .crumb__sub {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--ink-3);
+    letter-spacing: 0.02em;
+  }
+
+  /* Filter chips — refined: vermilion dot for active, no fill */
+  .filterbar { gap: 2px; }
+  .filterbar .pill {
+    padding: 5px 11px; cursor: pointer;
+    border-color: transparent; background: transparent;
+    color: var(--ink-3);
+    font-weight: 500;
+    border-radius: 100px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .filterbar .pill:hover { background: rgba(27,23,20,0.05); color: var(--ink-2); }
+  .filterbar .pill--active {
+    color: var(--ink); background: rgba(201,71,42,0.08);
+  }
+  .filterbar .pill--active::before {
+    content: ''; width: 5px; height: 5px; border-radius: 50%;
+    background: var(--vermilion);
+  }
+  .filterbar .pill__count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    margin-left: 2px;
+  }
+  .filterbar .pill--active .pill__count { color: var(--vermilion); }
+
+  .filter-divider {
+    width: 1px; height: 16px; background: var(--line);
+    margin: 0 4px;
+  }
+
+  /* Decision filter pills */
+  .filterbar .pill--decision { gap: 5px; }
+  .filterbar .pill--decision svg { width: 11px; height: 11px; }
+
+  /* Masonry fills the rest of the window */
+  .masonry-wrap {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--paper);
+    min-height: 0;
+  }
+  .masonry { columns: 3; column-gap: 22px; padding: 22px; }
+  .main { display: flex; flex-direction: column; }
+
+  /* Specific thumbnail recipes — UI fakes */
+  .thumb { font-family: var(--font-body); font-size: 9px; color: var(--ink); }
+
+  /* Hero variant A — editorial product page */
+  .ui-hero-a {
+    height: 280px;
+    background: linear-gradient(to bottom, #FFFEF8 0%, #F4EDDF 100%);
+    padding: 14px;
+    position: relative;
+  }
+  .ui-hero-a__nav { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 0.5px solid rgba(27,23,20,0.15); }
+  .ui-hero-a__brand { font-family: var(--font-display); font-style: italic; font-size: 13px; }
+  .ui-hero-a__nav-links { display: flex; gap: 8px; font-size: 7px; color: var(--ink-3); }
+  .ui-hero-a__hero { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ui-hero-a__copy { padding: 8px 0; }
+  .ui-hero-a__h { font-family: var(--font-display); font-style: italic; font-size: 28px; line-height: 1; letter-spacing: -0.02em; margin: 0; }
+  .ui-hero-a__sub { font-size: 7px; color: var(--ink-3); margin-top: 8px; line-height: 1.5; }
+  .ui-hero-a__cta { display: inline-block; margin-top: 10px; background: var(--ink); color: var(--paper); padding: 4px 9px; border-radius: 100px; font-size: 7px; }
+  .ui-hero-a__product { background: linear-gradient(135deg, #C9472A 0%, #5A2E20 100%); border-radius: 6px; aspect-ratio: 1; }
+
+  /* Hero variant B — bold maximalist */
+  .ui-hero-b {
+    height: 240px;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .ui-hero-b::before {
+    content: ''; position: absolute; right: -40px; top: -30px; width: 180px; height: 180px;
+    background: radial-gradient(circle, var(--vermilion) 0%, transparent 70%);
+    opacity: 0.7;
+  }
+  .ui-hero-b__brand { font-family: var(--font-display); font-style: italic; font-size: 11px; position: relative; }
+  .ui-hero-b__h { font-family: var(--font-display); font-style: italic; font-size: 38px; line-height: 0.95; margin: 30px 0 0; letter-spacing: -0.03em; position: relative; }
+  .ui-hero-b__h em { color: var(--vermilion); }
+  .ui-hero-b__row { position: absolute; bottom: 14px; left: 16px; right: 16px; display: flex; justify-content: space-between; align-items: end; font-family: var(--font-mono); font-size: 7px; opacity: 0.6; letter-spacing: 0.1em; }
+
+  /* PNG: paywall — phone screenshot */
+  .ui-paywall {
+    height: 320px;
+    background: linear-gradient(160deg, #1B1714 0%, #3A2E22 60%, #C9472A 130%);
+    padding: 22px 28px;
+    color: #F4EFE5;
+    position: relative;
+  }
+  .ui-paywall__phone {
+    background: #fff;
+    color: var(--ink);
+    border-radius: 16px;
+    padding: 14px;
+    margin-top: 16px;
+    height: 220px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  }
+  .ui-paywall__h { font-family: var(--font-display); font-style: italic; font-size: 16px; }
+  .ui-paywall__sub { font-size: 7px; opacity: 0.7; margin-top: 4px; }
+  .ui-paywall__plan { background: #F4EFE5; border-radius: 8px; padding: 8px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+  .ui-paywall__plan--active { background: var(--ink); color: var(--paper); }
+
+  /* Settings pane */
+  .ui-settings {
+    height: 220px;
+    background: #FFFDF6;
+    display: grid;
+    grid-template-columns: 76px 1fr;
+  }
+  .ui-settings__sidebar {
+    background: rgba(27,23,20,0.04);
+    padding: 10px 6px;
+    border-right: 0.5px solid var(--line);
+    font-size: 7px;
+  }
+  .ui-settings__nav { padding: 3px 5px; border-radius: 3px; color: var(--ink-3); margin-bottom: 1px; }
+  .ui-settings__nav--active { background: var(--ink); color: var(--paper); }
+  .ui-settings__main { padding: 14px; }
+  .ui-settings__h { font-family: var(--font-display); font-style: italic; font-size: 16px; margin: 0 0 12px; }
+  .ui-settings__row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 0.5px solid var(--line-soft); font-size: 7.5px; }
+  .ui-settings__toggle { width: 22px; height: 12px; border-radius: 100px; background: var(--sage); position: relative; }
+  .ui-settings__toggle::after { content: ''; position: absolute; top: 1px; right: 1px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+
+  /* SVG icon thumb */
+  .ui-svg-mark {
+    height: 160px;
+    background:
+      linear-gradient(45deg, transparent 49%, rgba(27,23,20,0.04) 49% 51%, transparent 51%),
+      linear-gradient(-45deg, transparent 49%, rgba(27,23,20,0.04) 49% 51%, transparent 51%),
+      #FFFDF6;
+    background-size: 16px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* PDF page */
+  .ui-pdf {
+    height: 270px;
+    background: #FFFEF8;
+    padding: 22px 22px 14px;
+    position: relative;
+    border-bottom: 0.5px solid var(--line);
+  }
+  .ui-pdf::after {
+    content: '';
+    position: absolute;
+    top: 8px; right: 8px;
+    background: rgba(27,23,20,0.06);
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 7px;
+    padding: 2px 5px;
+    border-radius: 3px;
+  }
+  .ui-pdf__page {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: 13px;
+    margin: 0 0 8px;
+  }
+  .ui-pdf__line { height: 4px; background: rgba(27,23,20,0.10); border-radius: 2px; margin-bottom: 5px; }
+  .ui-pdf__line--short { width: 60%; }
+  .ui-pdf__line--medium { width: 80%; }
+  .ui-pdf__img { background: linear-gradient(135deg, #E8D9B8, #C9472A); border-radius: 4px; height: 50px; margin: 10px 0; }
+
+  /* Product grid */
+  .ui-grid {
+    height: 260px;
+    background: #FFFDF6;
+    padding: 14px;
+  }
+  .ui-grid__h { font-family: var(--font-display); font-style: italic; font-size: 14px; margin: 0 0 12px; }
+  .ui-grid__items { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .ui-grid__item { aspect-ratio: 1; border-radius: 3px; }
+
+  /* About page — long copy */
+  .ui-about {
+    height: 300px;
+    background: #FBF6E9;
+    padding: 18px 22px;
+  }
+  .ui-about__eyebrow { font-family: var(--font-mono); font-size: 6.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-3); }
+  .ui-about__h { font-family: var(--font-display); font-style: italic; font-size: 24px; margin: 8px 0 12px; line-height: 1.05; letter-spacing: -0.02em; }
+  .ui-about__p { height: 4px; background: rgba(27,23,20,0.10); border-radius: 2px; margin-bottom: 5px; }
+
+  /* Window empty state mockup */
+  .ui-empty {
+    height: 200px;
+    background: #FBF6E9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 24px;
+  }
+  .ui-empty__h { font-family: var(--font-display); font-style: italic; font-size: 22px; line-height: 1; }
+  .ui-empty__sub { font-size: 7px; color: var(--ink-3); margin-top: 6px; }
+  .ui-empty__btn { background: var(--ink); color: var(--paper); padding: 4px 10px; border-radius: 100px; font-size: 7px; margin-top: 12px; }
+
+  /* PNG photo: hero hover */
+  .ui-photo {
+    height: 200px;
+    background:
+      radial-gradient(circle at 30% 40%, #E8D9B8 0%, transparent 50%),
+      linear-gradient(180deg, #5A4030 0%, #1B1714 100%);
+    display: flex;
+    align-items: end;
+    padding: 16px;
+  }
+  .ui-photo__cap {
+    background: rgba(27,23,20,0.7);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    color: var(--paper);
+    padding: 5px 9px;
+    border-radius: 100px;
+    font-size: 7.5px;
+  }
+
+  /* Press kit pdf */
+  .ui-pdf-cover {
+    height: 280px;
+    background: var(--ink);
+    color: var(--paper);
+    padding: 26px 22px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .ui-pdf-cover__brand { font-family: var(--font-display); font-style: italic; font-size: 28px; }
+  .ui-pdf-cover__sub { font-size: 7.5px; opacity: 0.6; margin-top: 4px; letter-spacing: 0.1em; }
+  .ui-pdf-cover__year { font-family: var(--font-mono); font-size: 7.5px; opacity: 0.5; }
+  .ui-pdf-cover__mark { position: absolute; top: 22px; right: 22px; color: var(--vermilion); font-family: var(--font-mono); font-size: 7px; }
+
+</style>
+</head>
+<body>
+<div class="desk">
+  <div class="window grain" style="height: 760px;">
+    <div class="titlebar">
+      <div class="traffic"><span class="close"></span><span class="min"></span><span class="max"></span></div>
+      <div class="titlebar__center">platter</div>
+      <div class="titlebar__right">
+        <button class="btn btn--ghost btn--icon" title="Settings">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M7 1v1.5M7 11.5V13M13 7h-1.5M2.5 7H1M11.24 2.76l-1.06 1.06M3.82 10.18l-1.06 1.06M11.24 11.24l-1.06-1.06M3.82 3.82L2.76 2.76" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="app-body" style="height: calc(100% - 44px); min-height: 0;">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <ul class="tree">
+          <li class="tree__section">watched roots</li>
+
+          <!-- Penova -->
+          <li class="tree__row">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 3.5C2 2.67 2.67 2 3.5 2H6l1.5 1.5h3a1.5 1.5 0 0 1 1.5 1.5v6.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V3.5z" stroke="currentColor" stroke-width="1.1"/></svg>
+            <span class="tree__label">Penova</span>
+          </li>
+          <li class="tree__row tree__row--child">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 4h10v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4z" fill="currentColor" fill-opacity="0.15"/><path d="M2 4h10v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4zM2 4l1.5-1.5h2L7 4" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+            <span class="tree__label">mockups</span>
+          </li>
+          <li class="tree__row tree__row--child2 tree__row--active">
+            <span class="tree__label">mac</span>
+            <span class="tree__count">12</span>
+            <span class="tree__new"></span>
+          </li>
+          <li class="tree__row tree__row--child2">
+            <span class="tree__label">ios</span>
+            <span class="tree__count">4</span>
+          </li>
+          <li class="tree__row tree__row--child">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 4h10v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4z" fill="currentColor" fill-opacity="0.15"/><path d="M2 4h10v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4zM2 4l1.5-1.5h2L7 4" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+            <span class="tree__label">screenshots</span>
+            <span class="tree__count">12</span>
+          </li>
+
+          <!-- NG-OK -->
+          <li class="tree__row" style="margin-top: 4px;">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 3.5C2 2.67 2.67 2 3.5 2H6l1.5 1.5h3a1.5 1.5 0 0 1 1.5 1.5v6.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V3.5z" stroke="currentColor" stroke-width="1.1"/></svg>
+            <span class="tree__label">NG-OK</span>
+          </li>
+          <li class="tree__row tree__row--child">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 4h10v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4z" fill="currentColor" fill-opacity="0.15"/><path d="M2 4h10v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4zM2 4l1.5-1.5h2L7 4" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+            <span class="tree__label">mockups</span>
+          </li>
+          <li class="tree__row tree__row--child2">
+            <span class="tree__label">distributed-settings</span>
+            <span class="tree__count">7</span>
+            <span class="tree__new"></span>
+          </li>
+          <li class="tree__row tree__row--child2">
+            <span class="tree__label">hud-redesign</span>
+            <span class="tree__count">15</span>
+          </li>
+          <li class="tree__row tree__row--child" style="opacity: 0.85;">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M3 11l8-8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+            <span class="tree__label" style="font-style: italic;">.claude/worktrees</span>
+          </li>
+          <li class="tree__row tree__row--child2">
+            <span class="tree__label">feat-hotkeys/mockups</span>
+            <span class="tree__count">3</span>
+            <span class="tree__new"></span>
+          </li>
+
+          <!-- pranayoga -->
+          <li class="tree__row" style="margin-top: 4px;">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 3.5C2 2.67 2.67 2 3.5 2H6l1.5 1.5h3a1.5 1.5 0 0 1 1.5 1.5v6.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V3.5z" stroke="currentColor" stroke-width="1.1"/></svg>
+            <span class="tree__label">pranayoga</span>
+          </li>
+          <li class="tree__row tree__row--child">
+            <span class="tree__label">mockups</span>
+            <span class="tree__count">5</span>
+          </li>
+          <li class="tree__row tree__row--child">
+            <span class="tree__label">artifacts</span>
+            <span class="tree__count">47</span>
+          </li>
+
+          <!-- ShotSelect -->
+          <li class="tree__row" style="margin-top: 4px;">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 3.5C2 2.67 2.67 2 3.5 2H6l1.5 1.5h3a1.5 1.5 0 0 1 1.5 1.5v6.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V3.5z" stroke="currentColor" stroke-width="1.1"/></svg>
+            <span class="tree__label">ShotSelect</span>
+          </li>
+          <li class="tree__row tree__row--child">
+            <span class="tree__label">mockups</span>
+            <span class="tree__count">6</span>
+          </li>
+          <li class="tree__row tree__row--child">
+            <span class="tree__label">screenshots</span>
+            <span class="tree__count">8</span>
+          </li>
+
+          <li class="tree__section" style="margin-top: 16px;">smart</li>
+          <li class="tree__row">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.1"/><path d="M7 4v3.2L9 9" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+            <span class="tree__label">recent</span>
+            <span class="tree__count">23</span>
+          </li>
+          <li class="tree__row">
+            <svg class="tree__icon" viewBox="0 0 14 14" fill="none"><path d="M2 7l3-4 3 5 4-3" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="tree__label">awaiting decision</span>
+            <span class="tree__count">3</span>
+            <span class="tree__new"></span>
+          </li>
+        </ul>
+
+        <!-- Footer: claude status -->
+        <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 16px; border-top: 0.5px solid var(--line); background: rgba(255,253,248,0.4); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); display: flex; align-items: center; gap: 8px;">
+          <span class="dot dot--sage" style="box-shadow: 0 0 0 3px rgba(110,127,88,0.18);"></span>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 11px; font-weight: 500; color: var(--ink); letter-spacing: -0.005em;">claude · connected</div>
+            <div style="font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">1 session · auth-flow</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <main class="main">
+        <div class="toolbar">
+          <div class="toolbar__top">
+            <div class="toolbar__crumb">
+              <span class="crumb">
+                <span>~/github</span>
+                <span class="crumb__sep">/</span>
+                <span>Penova</span>
+                <span class="crumb__sep">/</span>
+                <span>mockups</span>
+                <span class="crumb__sep">/</span>
+                <span class="crumb__current">mac</span>
+              </span>
+              <span class="crumb__sub" style="margin-left: 10px;">14 items · 3 new · scanned 8s ago</span>
+            </div>
+
+            <span class="spacer"></span>
+
+            <div class="toolbar__search">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4" stroke="currentColor" stroke-width="1.2"/><path d="M9 9l3 3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+              <input class="input" placeholder="Search this folder…">
+            </div>
+
+            <div class="tool-icon" title="Sort: newest first">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 2v9m0 0L1.5 8.5M4 11l2.5-2.5M9 12V3m0 0L6.5 5.5M9 3l2.5 2.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="tool-icon" title="Layout">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="2" width="4" height="5" rx="1" stroke="currentColor" stroke-width="1.1"/><rect x="8" y="2" width="4" height="3" rx="1" stroke="currentColor" stroke-width="1.1"/><rect x="2" y="9" width="4" height="3" rx="1" stroke="currentColor" stroke-width="1.1"/><rect x="8" y="7" width="4" height="5" rx="1" stroke="currentColor" stroke-width="1.1"/></svg>
+            </div>
+          </div>
+
+          <div class="toolbar__sub">
+            <div class="filterbar">
+              <span class="pill pill--active">all<span class="pill__count">14</span></span>
+              <span class="pill">html<span class="pill__count">7</span></span>
+              <span class="pill">png<span class="pill__count">2</span></span>
+              <span class="pill">pdf<span class="pill__count">3</span></span>
+              <span class="pill">svg<span class="pill__count">2</span></span>
+            </div>
+            <span class="filter-divider"></span>
+            <div class="filterbar">
+              <span class="pill pill--decision" style="color: var(--sage-2);">
+                <svg viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                approved<span class="pill__count">2</span>
+              </span>
+              <span class="pill pill--decision" style="color: var(--brick);">
+                <svg viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M3 11l8-8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+                rejected<span class="pill__count">1</span>
+              </span>
+              <span class="pill pill--decision" style="color: var(--ink-3);">
+                <svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.1" stroke-dasharray="2 2"/></svg>
+                undecided<span class="pill__count">11</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Masonry grid -->
+        <div class="masonry-wrap">
+          <div class="masonry">
+
+            <!-- Card 1: hero variant A — HTML -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">html</span>
+                <span class="card__new-dot"></span>
+                <div class="thumb ui-hero-a">
+                  <div class="ui-hero-a__nav">
+                    <div class="ui-hero-a__brand">Penova</div>
+                    <div class="ui-hero-a__nav-links"><span>shop</span><span>journal</span><span>about</span></div>
+                  </div>
+                  <div class="ui-hero-a__hero">
+                    <div class="ui-hero-a__copy">
+                      <h3 class="ui-hero-a__h">Skin like<br>memory.</h3>
+                      <div class="ui-hero-a__sub">A nightly serum, formulated in small batches.</div>
+                      <span class="ui-hero-a__cta">Shop the ritual</span>
+                    </div>
+                    <div class="ui-hero-a__product"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">hero-variant-A.html</div>
+                <div class="card__sub">
+                  <span>2 min ago</span><span>·</span><span>32 kB</span>
+                  <span class="card__decision card__decision--approved card__sub-end">
+                    <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    approved
+                  </span>
+                </div>
+              </div>
+            </article>
+
+            <!-- Card 2: paywall PNG -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">png</span>
+                <span class="card__new-dot"></span>
+                <div class="thumb ui-paywall">
+                  <div style="font-family: var(--font-display); font-style: italic; font-size: 22px;">Penova<br>Studio</div>
+                  <div class="ui-paywall__phone">
+                    <div class="ui-paywall__h">Become a member</div>
+                    <div class="ui-paywall__sub">Three plans. Cancel any time.</div>
+                    <div style="margin-top: 14px;">
+                      <div class="ui-paywall__plan ui-paywall__plan--active"><span style="font-size: 8px;">Annual</span><span style="font-size: 7px; opacity: 0.7;">$48 / yr</span></div>
+                      <div class="ui-paywall__plan"><span style="font-size: 8px;">Quarterly</span><span style="font-size: 7px;">$18</span></div>
+                      <div class="ui-paywall__plan"><span style="font-size: 8px;">Monthly</span><span style="font-size: 7px;">$8</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">paywall-iap.png</div>
+                <div class="card__sub"><span>14 min ago</span><span>·</span><span>1290×2790</span></div>
+              </div>
+            </article>
+
+            <!-- Card 3: SVG mark -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">svg</span>
+                <div class="thumb ui-svg-mark">
+                  <svg width="80" height="80" viewBox="0 0 100 100" fill="none">
+                    <circle cx="50" cy="50" r="38" stroke="#1B1714" stroke-width="1.5"/>
+                    <path d="M30 50 Q50 30, 70 50 T30 50" stroke="#C9472A" stroke-width="2" fill="none"/>
+                    <text x="50" y="84" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="6" fill="#1B1714" letter-spacing="3">PENOVA</text>
+                  </svg>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">brand-stamp.svg</div>
+                <div class="card__sub"><span>yesterday</span><span>·</span><span>4 kB</span></div>
+              </div>
+            </article>
+
+            <!-- Card 4: settings pane HTML — DEMO HOVER STATE -->
+            <article class="card card--demo-hover">
+              <div class="card__thumb">
+                <span class="card__kind">html</span>
+                <div class="card__quick" style="opacity: 1; transform: none;">
+                  <button title="Approve (A)"><svg width="9" height="9" viewBox="0 0 14 14" fill="none" style="display: inline-block; vertical-align: -1px; margin-right: 4px;"><path d="M3 7l3 3 5-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>A</button>
+                  <button title="Reject (R)"><svg width="9" height="9" viewBox="0 0 14 14" fill="none" style="display: inline-block; vertical-align: -1px; margin-right: 4px;"><path d="M3 3l8 8M3 11l8-8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>R</button>
+                  <button title="Open (↵)"><svg width="9" height="9" viewBox="0 0 14 14" fill="none" style="display: inline-block; vertical-align: -1px; margin-right: 4px;"><path d="M2.5 7h9m0 0L8 3.5M11.5 7L8 10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>open</button>
+                </div>
+                <div class="thumb ui-settings">
+                  <div class="ui-settings__sidebar">
+                    <div class="ui-settings__nav ui-settings__nav--active">General</div>
+                    <div class="ui-settings__nav">Account</div>
+                    <div class="ui-settings__nav">Notifications</div>
+                    <div class="ui-settings__nav">Shipping</div>
+                    <div class="ui-settings__nav">Privacy</div>
+                  </div>
+                  <div class="ui-settings__main">
+                    <h3 class="ui-settings__h">General</h3>
+                    <div class="ui-settings__row"><span>Launch on login</span><span class="ui-settings__toggle"></span></div>
+                    <div class="ui-settings__row"><span>Daily ritual reminder</span><span class="ui-settings__toggle"></span></div>
+                    <div class="ui-settings__row"><span>Sync to iCloud</span><span class="ui-settings__toggle" style="background: rgba(27,23,20,0.2);"></span></div>
+                    <div class="ui-settings__row" style="border-bottom: 0;"><span>Appearance</span><span style="font-size: 7px; color: var(--ink-3);">System ▾</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">settings-pane.html</div>
+                <div class="card__sub"><span>1 hr ago</span><span>·</span><span>HTML</span></div>
+              </div>
+            </article>
+
+            <!-- Card 5: hero variant B (bold) -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">html</span>
+                <span class="card__new-dot"></span>
+                <div class="thumb ui-hero-b">
+                  <div class="ui-hero-b__brand">Penova</div>
+                  <div class="ui-hero-b__h">Skin <em>like</em><br>memory.</div>
+                  <div class="ui-hero-b__row"><span>Variant B · Bold</span><span>2026 / 05</span></div>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">hero-variant-B.html</div>
+                <div class="card__sub">
+                  <span>2 min ago</span><span>·</span><span>28 kB</span>
+                  <span class="card__decision card__decision--rejected card__sub-end">
+                    <svg width="10" height="10" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M3 11l8-8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+                    rejected
+                  </span>
+                </div>
+              </div>
+            </article>
+
+            <!-- Card 6: PDF page -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">pdf</span>
+                <div class="thumb ui-pdf">
+                  <h3 class="ui-pdf__page">Lookbook · Spring</h3>
+                  <div class="ui-pdf__line ui-pdf__line--medium"></div>
+                  <div class="ui-pdf__line ui-pdf__line--short"></div>
+                  <div class="ui-pdf__img"></div>
+                  <div class="ui-pdf__line"></div>
+                  <div class="ui-pdf__line ui-pdf__line--medium"></div>
+                  <div class="ui-pdf__line ui-pdf__line--short"></div>
+                  <div style="position: absolute; bottom: 14px; right: 22px; font-family: var(--font-mono); font-size: 7.5px; color: var(--ink-3);">page 1 of 24</div>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">lookbook-spread-1.pdf</div>
+                <div class="card__sub"><span>3 hrs ago</span><span>·</span><span>2.4 MB</span></div>
+              </div>
+            </article>
+
+            <!-- Card 7: about HTML -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">html</span>
+                <div class="thumb ui-about">
+                  <div class="ui-about__eyebrow">about · est. 2026</div>
+                  <h3 class="ui-about__h">Made for the<br><em style="color: var(--vermilion); font-style: italic;">slow</em> mornings.</h3>
+                  <div class="ui-about__p" style="width: 95%;"></div>
+                  <div class="ui-about__p" style="width: 90%;"></div>
+                  <div class="ui-about__p" style="width: 75%;"></div>
+                  <div class="ui-about__p" style="width: 88%; margin-top: 10px;"></div>
+                  <div class="ui-about__p" style="width: 85%;"></div>
+                  <div class="ui-about__p" style="width: 60%;"></div>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">about-page.html</div>
+                <div class="card__sub"><span>14 min ago</span><span>·</span><span>HTML</span></div>
+              </div>
+            </article>
+
+            <!-- Card 8: product grid HTML -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">html</span>
+                <div class="thumb ui-grid">
+                  <h3 class="ui-grid__h">The shelf.</h3>
+                  <div class="ui-grid__items">
+                    <div class="ui-grid__item" style="background: linear-gradient(135deg, #C9472A, #5A2E20);"></div>
+                    <div class="ui-grid__item" style="background: linear-gradient(135deg, #E8D9B8, #837767);"></div>
+                    <div class="ui-grid__item" style="background: linear-gradient(135deg, #6E7F58, #2E3A1E);"></div>
+                    <div class="ui-grid__item" style="background: linear-gradient(135deg, #B58A3D, #5A4030);"></div>
+                    <div class="ui-grid__item" style="background: linear-gradient(135deg, #F4EFE5, #C9BFA9);"></div>
+                    <div class="ui-grid__item" style="background: linear-gradient(135deg, #A04428, #2D1410);"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">product-grid.html</div>
+                <div class="card__sub"><span>5 hrs ago</span><span>·</span><span>HTML</span></div>
+              </div>
+            </article>
+
+            <!-- Card 9: PNG photo hero hover -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">png</span>
+                <div class="thumb ui-photo">
+                  <span class="ui-photo__cap">↻ hover state · golden hour</span>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">hero-hover-state.png</div>
+                <div class="card__sub"><span>yesterday</span><span>·</span><span>2880×1620</span></div>
+              </div>
+            </article>
+
+            <!-- Card 10: empty state HTML -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">html</span>
+                <div class="thumb ui-empty">
+                  <div class="ui-empty__h">Cart's empty.</div>
+                  <div class="ui-empty__sub">Nothing to take home — yet.</div>
+                  <span class="ui-empty__btn">Find your ritual</span>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">cart-empty.html</div>
+                <div class="card__sub"><span>2 days ago</span><span>·</span><span>HTML</span></div>
+              </div>
+            </article>
+
+            <!-- Card 11: PDF cover -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">pdf</span>
+                <div class="thumb ui-pdf-cover">
+                  <span class="ui-pdf-cover__mark">PRESS · 26</span>
+                  <div></div>
+                  <div>
+                    <div class="ui-pdf-cover__brand">Penova</div>
+                    <div class="ui-pdf-cover__sub">PRESS KIT · SPRING 2026</div>
+                  </div>
+                  <div class="ui-pdf-cover__year">FOR EDITORIAL USE</div>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">press-kit.pdf</div>
+                <div class="card__sub"><span>last week</span><span>·</span><span>8.1 MB</span></div>
+              </div>
+            </article>
+
+            <!-- Card 12: form HTML -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">html</span>
+                <div class="thumb" style="height: 220px; background: #FFFDF6; padding: 16px;">
+                  <div style="font-family: var(--font-display); font-style: italic; font-size: 16px; margin-bottom: 14px;">Tell us your skin.</div>
+                  <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <div style="font-size: 7px; color: var(--ink-3);">Concerns (pick up to 3)</div>
+                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                      <span style="background: var(--ink); color: var(--paper); font-size: 7px; padding: 3px 7px; border-radius: 100px;">dryness</span>
+                      <span style="border: 0.5px solid var(--line-strong); font-size: 7px; padding: 3px 7px; border-radius: 100px;">redness</span>
+                      <span style="background: var(--ink); color: var(--paper); font-size: 7px; padding: 3px 7px; border-radius: 100px;">fine lines</span>
+                      <span style="border: 0.5px solid var(--line-strong); font-size: 7px; padding: 3px 7px; border-radius: 100px;">texture</span>
+                      <span style="border: 0.5px solid var(--line-strong); font-size: 7px; padding: 3px 7px; border-radius: 100px;">dullness</span>
+                    </div>
+                    <div style="font-size: 7px; color: var(--ink-3); margin-top: 10px;">How does your skin feel by 4pm?</div>
+                    <div style="background: rgba(27,23,20,0.04); height: 18px; border-radius: 4px;"></div>
+                    <div style="background: rgba(27,23,20,0.04); height: 18px; border-radius: 4px;"></div>
+                    <div style="background: var(--vermilion); color: var(--paper); font-size: 7.5px; padding: 4px 9px; border-radius: 100px; align-self: start; margin-top: 6px;">Build my ritual →</div>
+                  </div>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">quiz-onboarding.html</div>
+                <div class="card__sub"><span>3 days ago</span><span>·</span><span>HTML</span></div>
+              </div>
+            </article>
+
+            <!-- Card 13: SVG diagram (small) -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">svg</span>
+                <div class="thumb" style="height: 120px; background: #FFFDF6; padding: 16px;">
+                  <svg width="100%" height="100%" viewBox="0 0 220 90" fill="none">
+                    <rect x="2" y="20" width="50" height="50" rx="4" stroke="#1B1714" stroke-width="1"/>
+                    <text x="27" y="52" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#1B1714">cart</text>
+                    <path d="M52 45h28" stroke="#C9472A" stroke-width="1"/>
+                    <polygon points="80,42 84,45 80,48" fill="#C9472A"/>
+                    <rect x="84" y="20" width="50" height="50" rx="4" stroke="#1B1714" stroke-width="1"/>
+                    <text x="109" y="52" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#1B1714">pay</text>
+                    <path d="M134 45h28" stroke="#C9472A" stroke-width="1"/>
+                    <polygon points="162,42 166,45 162,48" fill="#C9472A"/>
+                    <rect x="166" y="20" width="50" height="50" rx="4" stroke="#1B1714" stroke-width="1"/>
+                    <text x="191" y="52" text-anchor="middle" font-family="JetBrains Mono" font-size="8" fill="#1B1714">ship</text>
+                  </svg>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">checkout-flow.svg</div>
+                <div class="card__sub"><span>4 days ago</span><span>·</span><span>2 kB</span></div>
+              </div>
+            </article>
+
+            <!-- Card 14: PDF inner page -->
+            <article class="card">
+              <div class="card__thumb">
+                <span class="card__kind">pdf</span>
+                <div class="thumb ui-pdf" style="height: 240px;">
+                  <h3 class="ui-pdf__page">02 · The Ritual</h3>
+                  <div class="ui-pdf__line ui-pdf__line--medium"></div>
+                  <div class="ui-pdf__line ui-pdf__line--short"></div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px;">
+                    <div style="background: linear-gradient(135deg, #E8D9B8, #837767); height: 60px; border-radius: 3px;"></div>
+                    <div style="background: linear-gradient(135deg, #6E7F58, #2E3A1E); height: 60px; border-radius: 3px;"></div>
+                  </div>
+                  <div class="ui-pdf__line" style="margin-top: 8px;"></div>
+                  <div class="ui-pdf__line ui-pdf__line--short"></div>
+                </div>
+              </div>
+              <div class="card__meta">
+                <div class="card__name">lookbook-spread-2.pdf</div>
+                <div class="card__sub"><span>3 hrs ago</span><span>·</span><span>2.4 MB</span></div>
+              </div>
+            </article>
+
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</div>
+</body>
+</html>

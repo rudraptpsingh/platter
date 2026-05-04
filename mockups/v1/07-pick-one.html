@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>platter — pick one</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .titlebar { background: rgba(20,17,13,0.7); border-bottom-color: rgba(232,223,205,0.10); }
+  .titlebar__title, .titlebar__center { color: var(--void-ink); }
+  .titlebar__center { font-size: 15px; opacity: 0.85; }
+  .traffic span { box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.3); }
+
+  .void-stage {
+    height: calc(100% - 44px);
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(201,71,42,0.10) 0%, transparent 55%),
+      var(--void);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    position: relative;
+  }
+  .void-stage::before {
+    content: ''; position: absolute; inset: 0;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/></svg>");
+    opacity: 0.05; pointer-events: none; mix-blend-mode: screen;
+  }
+
+  .review {
+    position: relative; z-index: 2;
+    width: 100%; max-width: 1080px;
+    background: var(--paper);
+    border-radius: var(--r-2xl);
+    box-shadow: 0 60px 120px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,253,248,0.06), inset 0 1px 0 rgba(255,253,248,0.6);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+
+  .review__head {
+    padding: 14px 22px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 0.5px solid var(--line);
+  }
+  .claude-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--ink); color: var(--paper); padding: 4px 10px; border-radius: 100px; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.10em; text-transform: uppercase; font-weight: 500; }
+  .claude-tag .dot { background: var(--vermilion); width: 5px; height: 5px; }
+  .context { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+  .context strong { color: var(--ink-2); font-weight: 500; }
+  .context__sep { opacity: 0.4; margin: 0 6px; }
+  .review__close { margin-left: auto; width: 28px; height: 28px; border-radius: 50%; background: rgba(27,23,20,0.06); border: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: var(--ink-3); }
+
+  .prompt-block { padding: 26px 28px 18px; text-align: center; }
+  .prompt-eyebrow { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.20em; text-transform: uppercase; color: var(--vermilion); margin-bottom: 10px; }
+  .prompt { font-family: var(--font-display); font-style: italic; font-size: 32px; line-height: 1.1; letter-spacing: -0.02em; color: var(--ink); margin: 0; }
+
+  /* Pick row */
+  .pick-row {
+    padding: 18px 28px;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+
+  .pick-card {
+    position: relative;
+    background: #FFFCF4;
+    border: 1.5px solid var(--line);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.18s var(--ease-out);
+  }
+  .pick-card:hover { transform: translateY(-2px); border-color: var(--line-strong); box-shadow: 0 14px 28px rgba(27,23,20,0.10); }
+  .pick-card--selected {
+    border-color: var(--vermilion);
+    box-shadow: 0 24px 50px rgba(201,71,42,0.18), 0 0 0 4px var(--vermilion-soft);
+    transform: translateY(-2px);
+  }
+
+  .pick-card__num {
+    position: absolute;
+    top: 10px; left: 10px;
+    z-index: 3;
+    font-family: var(--font-mono); font-size: 11px;
+    background: rgba(255,253,248,0.85);
+    color: var(--ink-2);
+    padding: 3px 8px; border-radius: 4px;
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    border: 0.5px solid var(--line);
+  }
+  .pick-card--selected .pick-card__num {
+    background: var(--vermilion); color: #FFF6E8; border-color: var(--vermilion);
+  }
+  .pick-card__check {
+    position: absolute;
+    top: 10px; right: 10px;
+    z-index: 3;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--vermilion); color: var(--paper);
+    display: none; align-items: center; justify-content: center;
+    box-shadow: 0 6px 14px rgba(201,71,42,0.35);
+  }
+  .pick-card--selected .pick-card__check { display: inline-flex; }
+
+  .pick-card__thumb {
+    height: 280px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pick-card__meta {
+    padding: 12px 14px 14px;
+    border-top: 0.5px solid var(--line-soft);
+    background: #FFFCF4;
+  }
+  .pick-card__name { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .pick-card__sub { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); margin-top: 3px; }
+
+  /* Tiny renderings */
+  .pck { width: 100%; height: 100%; }
+  .pck-1 { background: linear-gradient(180deg, #FFFEF8 0%, #F4EDDF 100%); padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .pck-1__brand { font-family: var(--font-display); font-style: italic; font-size: 16px; }
+  .pck-1__h { font-family: var(--font-display); font-style: italic; font-size: 28px; line-height: 0.95; margin: 0; }
+  .pck-1__row { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 0.5px solid rgba(27,23,20,0.15); margin-top: 4px; }
+  .pck-1__cta { background: var(--ink); color: var(--paper); font-size: 9px; padding: 4px 10px; border-radius: 100px; }
+  .pck-1__product { aspect-ratio: 1.5; border-radius: 6px; background: linear-gradient(135deg, #C9472A, #5A2E20); margin-top: 6px; }
+
+  .pck-2 { background: var(--ink); color: var(--paper); padding: 22px 24px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; }
+  .pck-2::before { content: ''; position: absolute; right: -50px; top: -40px; width: 220px; height: 220px; background: radial-gradient(circle, var(--vermilion) 0%, transparent 70%); opacity: 0.7; }
+  .pck-2__brand { font-family: var(--font-display); font-style: italic; font-size: 16px; position: relative; }
+  .pck-2__h { font-family: var(--font-display); font-style: italic; font-size: 38px; line-height: 0.95; margin: 0 0 8px; letter-spacing: -0.02em; position: relative; }
+  .pck-2__h em { color: var(--vermilion); }
+  .pck-2__sub { font-size: 10px; opacity: 0.7; max-width: 180px; line-height: 1.5; position: relative; }
+
+  .pck-3 { background: linear-gradient(160deg, #E8D9B8 0%, #C9472A 60%, #5A2E20 110%); position: relative; padding: 22px 24px; color: #FFFCF4; display: flex; flex-direction: column; justify-content: space-between; }
+  .pck-3__h { font-family: var(--font-display); font-style: italic; font-size: 30px; line-height: 1; margin: 0; text-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+  .pck-3__brand { font-family: var(--font-display); font-style: italic; font-size: 14px; opacity: 0.9; }
+  .pck-3__sub { font-size: 10px; opacity: 0.85; max-width: 180px; line-height: 1.5; }
+
+  /* Pick row */
+  .pick-row__action {
+    padding: 20px 28px 22px;
+    border-top: 0.5px solid var(--line);
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px;
+  }
+  .pick-summary {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 18px; color: var(--ink-2);
+    margin-right: auto;
+  }
+  .pick-summary strong { color: var(--ink); font-weight: 400; }
+
+  .btn-pick {
+    font-family: var(--font-display); font-style: italic;
+    font-size: 22px; letter-spacing: -0.02em;
+    padding: 14px 32px;
+    border-radius: 100px;
+    border: 1.5px solid var(--vermilion);
+    background: var(--vermilion); color: #FFF6E8;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 12px;
+    box-shadow: 0 10px 24px rgba(201,71,42,0.30);
+  }
+  .btn-pick__hint {
+    font-family: var(--font-mono); font-size: 10px; font-style: normal;
+    letter-spacing: 0.05em; padding: 2px 6px; border: 0.5px solid currentColor; border-radius: 4px; opacity: 0.8;
+  }
+
+  .btn-cancel {
+    font-family: var(--font-body); font-size: 13px;
+    padding: 8px 16px; border-radius: 100px;
+    border: 0.5px solid var(--line-strong);
+    background: transparent; color: var(--ink-3);
+    cursor: pointer;
+  }
+
+  .keyhints {
+    padding: 10px 22px 12px;
+    background: rgba(27,23,20,0.05);
+    border-top: 0.5px solid var(--line);
+    display: flex; align-items: center; gap: 18px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--ink-3);
+  }
+  .key { display: inline-flex; align-items: center; gap: 4px; }
+  .key kbd {
+    font-family: var(--font-mono);
+    background: rgba(255,253,248,0.7);
+    border: 0.5px solid var(--line-strong);
+    border-radius: 3px;
+    padding: 1px 5px; font-size: 9.5px; color: var(--ink-2);
+  }
+</style>
+</head>
+<body>
+<div class="desk desk--centered desk--dark">
+  <div class="window grain" style="height: 760px; background: var(--void);">
+    <div class="titlebar">
+      <div class="traffic"><span class="close"></span><span class="min"></span><span class="max"></span></div>
+      <div class="titlebar__center">platter · review</div>
+    </div>
+
+    <div class="void-stage">
+      <div class="review">
+        <header class="review__head">
+          <span class="claude-tag"><span class="dot"></span> claude</span>
+          <span class="context">
+            <strong>cover-shoot</strong>
+            <span class="context__sep">·</span>
+            <span>Penova / mockups / mac</span>
+            <span class="context__sep">·</span>
+            <span>opus 4.7 · session 4m</span>
+          </span>
+          <button class="review__close">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M3 11l8-8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </button>
+        </header>
+
+        <section class="prompt-block">
+          <div class="prompt-eyebrow">★ pick the one that wins</div>
+          <h1 class="prompt">One of these goes on the home page.</h1>
+        </section>
+
+        <div class="pick-row">
+
+          <article class="pick-card">
+            <span class="pick-card__num">1</span>
+            <div class="pick-card__thumb">
+              <div class="pck pck-1">
+                <div class="pck-1__brand">Penova</div>
+                <h2 class="pck-1__h">Skin like<br>memory.</h2>
+                <div class="pck-1__product"></div>
+                <div class="pck-1__row">
+                  <span style="font-size: 9px; color: var(--ink-3);">A nightly serum.</span>
+                  <span class="pck-1__cta">Shop →</span>
+                </div>
+              </div>
+            </div>
+            <div class="pick-card__meta">
+              <div class="pick-card__name">hero-variant-A.html</div>
+              <div class="pick-card__sub">editorial · serif</div>
+            </div>
+          </article>
+
+          <article class="pick-card pick-card--selected">
+            <span class="pick-card__num">2</span>
+            <span class="pick-card__check">
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </span>
+            <div class="pick-card__thumb">
+              <div class="pck pck-2">
+                <div class="pck-2__brand">Penova</div>
+                <div>
+                  <h2 class="pck-2__h">Skin <em>like</em><br>memory.</h2>
+                  <div class="pck-2__sub">A nightly serum, formulated in small batches.</div>
+                </div>
+              </div>
+            </div>
+            <div class="pick-card__meta">
+              <div class="pick-card__name">hero-variant-B.html</div>
+              <div class="pick-card__sub">bold · maximalist · vermilion</div>
+            </div>
+          </article>
+
+          <article class="pick-card">
+            <span class="pick-card__num">3</span>
+            <div class="pick-card__thumb">
+              <div class="pck pck-3">
+                <div class="pck-3__brand">Penova</div>
+                <div>
+                  <h2 class="pck-3__h">Skin like<br>memory.</h2>
+                  <div class="pck-3__sub" style="margin-top: 8px;">A nightly serum, formulated in small batches.</div>
+                </div>
+              </div>
+            </div>
+            <div class="pick-card__meta">
+              <div class="pick-card__name">hero-variant-C.html</div>
+              <div class="pick-card__sub">photographic · warm</div>
+            </div>
+          </article>
+
+        </div>
+
+        <div class="pick-row__action">
+          <span class="pick-summary">Picking <strong>variant B</strong>.</span>
+          <button class="btn-cancel">Cancel</button>
+          <button class="btn-pick">
+            Confirm pick
+            <span class="btn-pick__hint">⏎</span>
+          </button>
+        </div>
+
+        <footer class="keyhints">
+          <span class="key"><kbd>1</kbd>–<kbd>3</kbd> select</span>
+          <span class="key"><kbd>←</kbd>/<kbd>→</kbd> move focus</span>
+          <span class="key"><kbd>Space</kbd> open full</span>
+          <span class="key"><kbd>⏎</kbd> confirm</span>
+          <span style="margin-left: auto;" class="key"><kbd>esc</kbd> dismiss</span>
+        </footer>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
