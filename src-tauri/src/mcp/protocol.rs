@@ -136,6 +136,39 @@ fn get_decision_history_tool() -> Value {
     })
 }
 
+fn request_iteration_tool() -> Value {
+    json!({
+        "name": "request_iteration",
+        "description": "Show a single asset to the human and ask for free-text feedback on what to change. BLOCKS until the user submits (or dismisses). Use this after a rejection — turns 'no' into structured 'change X, change Y'. The user's text is returned in the `note` field.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Absolute path to the asset that needs iteration."
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "What you're asking the user about. e.g. 'What should change about the headline?' or 'Why did you reject this hero variant?'"
+                },
+                "what_to_change": {
+                    "type": "string",
+                    "description": "Optional hint about which aspect of the asset you want feedback on. Surfaced in the UI as a sub-prompt."
+                },
+                "timeout_seconds": {
+                    "type": "number",
+                    "default": 1800
+                },
+                "context": {
+                    "type": "object",
+                    "description": "Free-form context: { task, repo, ... }"
+                }
+            },
+            "required": ["path"]
+        }
+    })
+}
+
 fn list_recent_tool() -> Value {
     json!({
         "name": "list_recent",
@@ -189,6 +222,7 @@ pub fn dispatch(req: JsonRpcRequest, ctx: &McpContext) -> Option<JsonRpcResponse
             json!({
                 "tools": [
                     present_mockups_tool(),
+                    request_iteration_tool(),
                     record_decision_tool(),
                     get_decision_history_tool(),
                     list_recent_tool()
@@ -202,6 +236,7 @@ pub fn dispatch(req: JsonRpcRequest, ctx: &McpContext) -> Option<JsonRpcResponse
 
             match tool_name {
                 "present_mockups" => Some(handle_present_mockups(id, args, ctx)),
+                "request_iteration" => Some(handle_request_iteration(id, args, ctx)),
                 "record_decision" => Some(handle_record_decision(id, args, ctx)),
                 "get_decision_history" => Some(handle_get_decision_history(id, args, ctx)),
                 "list_recent" => Some(handle_list_recent(id, args, ctx)),
@@ -270,6 +305,64 @@ fn handle_present_mockups(id: Value, args: Value, ctx: &McpContext) -> JsonRpcRe
         paths,
         prompt,
         mode,
+        timeout_seconds,
+        context,
+        created_at: chrono::Utc::now().timestamp(),
+    };
+
+    let request_id = request.id.clone();
+    let rx = ctx.bus.submit(request);
+
+    let timeout = if timeout_seconds == 0 {
+        Duration::from_secs(60 * 60 * 24)
+    } else {
+        Duration::from_secs(timeout_seconds)
+    };
+
+    let decision = ctx.bus.wait_with_timeout(rx, timeout, &request_id);
+    ok(id, tool_text_result(&decision))
+}
+
+fn handle_request_iteration(id: Value, args: Value, ctx: &McpContext) -> JsonRpcResponse {
+    let path = match args.get("path").and_then(|v| v.as_str()) {
+        Some(p) => p.to_string(),
+        None => return err(id, -32602, "path is required"),
+    };
+
+    // Compose a prompt for the modal. If both `prompt` and `what_to_change`
+    // are present, prefer `prompt`; the iteration UI shows `what_to_change`
+    // as a focused sub-prompt under it.
+    let prompt = args
+        .get("prompt")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let what_to_change = args
+        .get("what_to_change")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    let timeout_seconds = args
+        .get("timeout_seconds")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(1800);
+
+    // Stash `what_to_change` into the context payload so the frontend can render it.
+    let mut context = args
+        .get("context")
+        .cloned()
+        .unwrap_or_else(|| json!({}));
+    if let Some(s) = &what_to_change {
+        if let Some(obj) = context.as_object_mut() {
+            obj.insert("what_to_change".to_string(), Value::String(s.clone()));
+        }
+    }
+
+    let request = ReviewRequest {
+        id: new_request_id(),
+        paths: vec![path],
+        prompt,
+        mode: ReviewMode::Iteration,
         timeout_seconds,
         context,
         created_at: chrono::Utc::now().timestamp(),

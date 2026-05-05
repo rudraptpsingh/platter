@@ -6,17 +6,43 @@ import { getBlobUrl } from "../lib/blobs";
 type Props = {
   file: FileRow;
   onOpen: () => void;
+  onCompareToggle?: (file: FileRow) => void;
+  comparedSlot?: 0 | 1 | null;
   onJumpToFolder?: (folder: string) => void;
   showLocation?: boolean;
 };
 
-export function Card({ file, onOpen, onJumpToFolder, showLocation }: Props) {
+export function Card({
+  file,
+  onOpen,
+  onCompareToggle,
+  comparedSlot,
+  onJumpToFolder,
+  showLocation,
+}: Props) {
   const isNew = (Date.now() / 1000 - file.mtime) < 600 && !file.decision;
   const folder = file.path.replace(/\/[^/]+$/, "");
   const folderLabel = niceFolderLabel(folder);
 
   return (
-    <article className="card" onClick={onOpen} title={file.path}>
+    <article
+      className={`card ${comparedSlot != null ? "card--cmp-selected" : ""}`}
+      onClick={(e) => {
+        // ⌘/Ctrl-click → toggle compare selection. Otherwise normal preview.
+        if (e.metaKey || e.ctrlKey) {
+          e.preventDefault();
+          onCompareToggle?.(file);
+          return;
+        }
+        onOpen();
+      }}
+      title={file.path}
+    >
+      {comparedSlot != null && (
+        <span className="card__cmp-badge">
+          {comparedSlot === 0 ? "compare ·1" : "compare · 2"}
+        </span>
+      )}
       <Thumb file={file} />
       <span className="card__kind">{file.kind}</span>
       {isNew && <span className="card__new-dot" />}

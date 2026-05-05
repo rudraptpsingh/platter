@@ -136,13 +136,14 @@ expect "ping returns ok"        "$out" '"id":7'
 expect "no error"               "$out" '"result":{}'
 
 # ──────────────────────────────────────────────────────
-printf "\n${Y}11. tools/list — all four tools${N}\n"
+printf "\n${Y}11. tools/list — all five tools${N}\n"
 out=$(mcp "$(cat <<EOF
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
 {"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
 EOF
 )")
 expect "present_mockups"        "$out" '"name":"present_mockups"'
+expect "request_iteration"      "$out" '"name":"request_iteration"'
 expect "record_decision"        "$out" '"name":"record_decision"'
 expect "get_decision_history"   "$out" '"name":"get_decision_history"'
 expect "list_recent"            "$out" '"name":"list_recent"'
@@ -210,6 +211,24 @@ else
 fi
 
 # ──────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────
+printf "\n${Y}18. request_iteration — missing path${N}\n"
+out=$(mcp '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
+{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"request_iteration","arguments":{}}}
+')
+expect "rejects missing path"   "$out" 'path is required'
+
+# ──────────────────────────────────────────────────────
+printf "\n${Y}19. request_iteration — short timeout${N}\n"
+out=$(mcp "$(cat <<EOF
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"request_iteration","arguments":{"path":"$MOCKUPS_DIR/01-empty-state.html","prompt":"What should change?","what_to_change":"the headline","timeout_seconds":2,"context":{"task":"smoke"}}}}
+EOF
+)")
+expect "decision: timeout"      "$out" 'timeout'
+expect "request id present"     "$out" 'rev_'
+
 printf "\n${Y}━━━ summary ━━━${N}\n"
 TOTAL=$((PASS+FAIL))
 if [[ $FAIL -eq 0 ]]; then

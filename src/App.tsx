@@ -18,6 +18,7 @@ import { UpdateBanner } from "./components/UpdateBanner";
 import { PrivacyConsent } from "./components/PrivacyConsent";
 import { ToastProvider, useToast } from "./components/Toast";
 import { Popover, PopoverMenu } from "./components/Popover";
+import { CompareModal } from "./components/CompareModal";
 import { detectReviewSet } from "./lib/review-set";
 import * as telemetry from "./lib/telemetry";
 import { copyDecisionsMarkdown, type Window as DecisionWindow } from "./lib/decisions";
@@ -25,6 +26,7 @@ import { copyDecisionsMarkdown, type Window as DecisionWindow } from "./lib/deci
 import "./styles/tokens.css";
 import "./styles/app.css";
 import "./styles/cards.css";
+import "./styles/compare-modal.css";
 
 type View = "home" | "folder" | "search" | "decisions";
 type DecisionsFilter = "all" | "approved" | "rejected";
@@ -52,6 +54,8 @@ function AppInner() {
   const [filterDecision, setFilterDecision] = useState<FilterDecision>("all");
   const [previewFile, setPreviewFile] = useState<FileRow | null>(null);
   const [pendingReviews, setPendingReviews] = useState<ReviewRequest[]>([]);
+  const [compareSelection, setCompareSelection] = useState<FileRow[]>([]);
+  const [comparePair, setComparePair] = useState<[FileRow, FileRow] | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [scanning, setScanning] = useState(true);
   const [showConsent, setShowConsent] = useState(false);
@@ -128,6 +132,17 @@ function AppInner() {
         e.preventDefault();
         setShowSettings(true);
       } else if (
+        e.key === "Escape" &&
+        compareSelection.length > 0 &&
+        !comparePair &&
+        !previewFile &&
+        pendingReviews.length === 0 &&
+        !showSettings &&
+        !showConsent
+      ) {
+        e.preventDefault();
+        setCompareSelection([]);
+      } else if (
         e.key === " " &&
         !inInput &&
         !previewFile &&
@@ -144,7 +159,7 @@ function AppInner() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [previewFile, pendingReviews.length, showSettings]);
+  }, [previewFile, pendingReviews.length, showSettings, compareSelection.length, comparePair, showConsent]);
 
   // Request notification permission once on startup (no-op if already granted/denied)
   useEffect(() => {
@@ -317,6 +332,22 @@ function AppInner() {
     setSearch("");
   }, []);
 
+  const handleCompareToggle = useCallback((f: FileRow) => {
+    setCompareSelection((prev) => {
+      // Toggle: if already selected, deselect
+      if (prev.some((x) => x.path === f.path)) {
+        return prev.filter((x) => x.path !== f.path);
+      }
+      // Add up to 2; auto-open modal at 2
+      const next = [...prev, f];
+      if (next.length >= 2) {
+        setComparePair([next[0], next[1]]);
+        return [];
+      }
+      return next;
+    });
+  }, []);
+
   const handleDecisionsView = useCallback(
     (filter: DecisionsFilter) => {
       setView("decisions");
@@ -458,15 +489,20 @@ function AppInner() {
         ) : (
           <div className="masonry-wrap">
             <div className="masonry">
-              {filteredFiles.map((f) => (
-                <Card
-                  key={f.id}
-                  file={f}
-                  onOpen={() => setPreviewFile(f)}
-                  showLocation={view !== "folder"}
-                  onJumpToFolder={(folder) => handleSelectFolder(folder)}
-                />
-              ))}
+              {filteredFiles.map((f) => {
+                const slot = compareSelection.findIndex((x) => x.path === f.path);
+                return (
+                  <Card
+                    key={f.id}
+                    file={f}
+                    onOpen={() => setPreviewFile(f)}
+                    onCompareToggle={handleCompareToggle}
+                    comparedSlot={slot === -1 ? null : (slot as 0 | 1)}
+                    showLocation={view !== "folder"}
+                    onJumpToFolder={(folder) => handleSelectFolder(folder)}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
@@ -499,6 +535,44 @@ function AppInner() {
               refreshTree();
               refreshRecent();
               refreshFiles(activePath);
+            }}
+          />
+        )}
+
+        {compareSelection.length === 1 && !comparePair && (
+          <div className="cmp-banner">
+            <span>
+              Comparing with <strong>{basename(compareSelection[0].path)}</strong> — ⌘-click another card
+            </span>
+            <span className="cmp-banner__hint">⌘ + click</span>
+            <button className="cmp-banner__cancel" onClick={() => setCompareSelection([])}>
+              Cancel
+            </button>
+          </div>
+        )}
+
+        {comparePair && (
+          <CompareModal
+            left={comparePair[0]}
+            right={comparePair[1]}
+            onClose={() => setComparePair(null)}
+            onSwap={() =>
+              setComparePair((prev) => (prev ? [prev[1], prev[0]] : prev))
+            }
+            onDecided={async (path, decision) => {
+              await handleDecided(path, decision);
+              // Reflect the new decision back into the compare panes immediately
+              setComparePair((prev) => {
+                if (!prev) return prev;
+                return [
+                  prev[0].path === path
+                    ? { ...prev[0], decision }
+                    : prev[0],
+                  prev[1].path === path
+                    ? { ...prev[1], decision }
+                    : prev[1],
+                ] as [FileRow, FileRow];
+              });
             }}
           />
         )}

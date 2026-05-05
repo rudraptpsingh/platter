@@ -10,6 +10,9 @@ pub enum ReviewMode {
     ApproveReject,
     Rank,
     PickOne,
+    /// Iteration mode: agent shows a single asset and asks the user for free-text
+    /// feedback on what to change. Returns the typed string in `note`.
+    Iteration,
 }
 
 impl Default for ReviewMode {
@@ -38,6 +41,8 @@ pub enum DecisionKind {
     Dismissed,
     Picked,
     Ranked,
+    /// Iteration feedback delivered. Look at `note` for the user's text.
+    Iterated,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

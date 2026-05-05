@@ -45,6 +45,7 @@ export function ReviewModal({ request, onClose }: Props) {
         )}
         {mode === "pick_one" && <PickOneMode request={request} onResolve={resolve} />}
         {mode === "rank" && <RankMode request={request} onResolve={resolve} />}
+        {mode === "iteration" && <IterationMode request={request} onResolve={resolve} />}
       </div>
     </div>
   );
@@ -68,6 +69,8 @@ function Header({
       ? "a decision is needed"
       : mode === "rank"
       ? "rank these — best first"
+      : mode === "iteration"
+      ? "claude wants direction"
       : "pick the one that wins";
 
   return (
@@ -544,6 +547,118 @@ function RankMode({
           <span className="submit-bar__hint">⏎</span>
         </button>
       </div>
+    </>
+  );
+}
+
+// ─── Iteration ────────────────────────────────────────
+
+function IterationMode({
+  request,
+  onResolve,
+}: {
+  request: ReviewRequest;
+  onResolve: (d: Omit<ReviewDecision, "id" | "decided_at">) => void;
+}) {
+  const path = request.paths[0];
+  const ctx = (request.context ?? {}) as { what_to_change?: string };
+  const [text, setText] = useState("");
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  // Autofocus the textarea on mount
+  useEffect(() => {
+    const t = window.setTimeout(() => taRef.current?.focus(), 50);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  function submit() {
+    const note = text.trim();
+    if (!note) return;
+    onResolve({ decision: "iterated", note });
+  }
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onResolve({ decision: "dismissed" });
+        return;
+      }
+      // ⌘⏎ submits from anywhere, even with focus elsewhere
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        submit();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
+
+  return (
+    <>
+      <main className="asset-stage">
+        <div className="asset-frame">
+          <AssetPreview path={path} mode="modal" />
+        </div>
+      </main>
+
+      <div className="asset-meta">
+        <strong>{basename(path)}</strong>
+        {ctx.what_to_change && (
+          <>
+            <span className="asset-meta__sep">·</span>
+            <span style={{ fontStyle: "italic", color: "var(--ink-2)" }}>
+              focus: {ctx.what_to_change}
+            </span>
+          </>
+        )}
+      </div>
+
+      <div className="iteration-input">
+        <textarea
+          ref={taRef}
+          className="iteration-input__ta"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={
+            ctx.what_to_change
+              ? `What should change about ${ctx.what_to_change}?`
+              : "Tell Claude what to change. The more specific, the better."
+          }
+          rows={4}
+        />
+      </div>
+
+      <div className="submit-bar">
+        <span className="submit-bar__summary">
+          {text.trim().length > 0 ? (
+            <>
+              <strong>{text.trim().length}</strong> chars of feedback
+            </>
+          ) : (
+            <span style={{ color: "var(--ink-3)" }}>
+              {ctx.what_to_change
+                ? "give Claude one concrete change"
+                : "give Claude direction"}
+            </span>
+          )}
+        </span>
+        <button className="submit-bar__btn" onClick={submit} disabled={text.trim().length === 0}>
+          Send to Claude
+          <span className="submit-bar__hint">⌘⏎</span>
+        </button>
+      </div>
+
+      <footer className="keyhints">
+        <span className="key">
+          <kbd>⌘</kbd>
+          <kbd>⏎</kbd> send
+        </span>
+        <span style={{ marginLeft: "auto" }} className="key">
+          <kbd>esc</kbd> dismiss
+        </span>
+      </footer>
     </>
   );
 }

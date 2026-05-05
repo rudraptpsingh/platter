@@ -35,7 +35,7 @@ export type RootInfo = {
   file_count: number;
 };
 
-export type ReviewMode = "approve_reject" | "rank" | "pick_one";
+export type ReviewMode = "approve_reject" | "rank" | "pick_one" | "iteration";
 
 export type ReviewRequest = {
   id: string;
@@ -53,7 +53,8 @@ export type DecisionKind =
   | "timeout"
   | "dismissed"
   | "picked"
-  | "ranked";
+  | "ranked"
+  | "iterated";
 
 export type PerItem = {
   path: string;
