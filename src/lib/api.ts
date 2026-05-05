@@ -23,6 +23,7 @@ export const api = {
   listPendingReviews: () => invoke<ReviewRequest[]>("list_pending_reviews"),
   resolveReview: (decision: ReviewDecision) =>
     invoke<void>("resolve_review", { decision }),
+  forceForeground: () => invoke<void>("force_foreground"),
   listRootInfo: () => invoke<RootInfo[]>("list_root_info"),
   addRoot: (glob: string, label?: string) =>
     invoke<number>("add_root", { glob, label: label ?? null }),

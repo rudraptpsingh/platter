@@ -203,6 +203,44 @@ fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
     std::fs::read(path).map_err(|e| e.to_string())
 }
 
+/// Force-foreground the platter window across macOS Spaces.
+/// Tauri's `setFocus()` calls `[NSApp activateIgnoringOtherApps:YES]` but
+/// macOS only follows the user to the window's Space if certain prefs are
+/// set. Setting NSWindowCollectionBehaviorMoveToActiveSpace makes the
+/// window come to the *current* Space instead of pulling the user to the
+/// window's old Space — which is what we want for an interrupting review.
+#[tauri::command]
+fn force_foreground(window: tauri::WebviewWindow) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::Manager;
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+        // Ask AppKit to bring this window to the current Space
+        if let Ok(ns_window) = window.ns_window() {
+            unsafe {
+                use objc::{msg_send, sel, sel_impl};
+                // NSWindowCollectionBehaviorMoveToActiveSpace = 1 << 1 = 2
+                // NSWindowCollectionBehaviorManaged          = 1 << 2 = 4
+                let behavior: u64 = 2 | 4;
+                let _: () = msg_send![ns_window as *mut objc::runtime::Object, setCollectionBehavior: behavior];
+                // Force activation regardless of caller policy
+                let ns_app: *mut objc::runtime::Object = msg_send![objc::class!(NSApplication), sharedApplication];
+                let _: () = msg_send![ns_app, activateIgnoringOtherApps: true];
+                let _: () = msg_send![ns_window as *mut objc::runtime::Object, makeKeyAndOrderFront: ns_app];
+            }
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn list_pending_reviews(state: State<AppState>) -> Vec<mcp::ReviewRequest> {
     state.bus.list_pending()
@@ -324,6 +362,7 @@ pub fn run() {
             read_file_bytes,
             list_pending_reviews,
             resolve_review,
+            force_foreground,
             list_root_info,
             add_root,
             remove_root,
@@ -348,12 +387,25 @@ pub fn run() {
             // MCP review bus → emit Tauri event whenever a new review lands
             let app_handle3 = app.handle().clone();
             bus_for_setup.set_notifier(move |req| {
-                let _ = app_handle3.emit("platter:review-pending", req.clone());
+                eprintln!(
+                    "[platter] review-pending: id={} mode={:?} paths={}",
+                    req.id,
+                    req.mode,
+                    req.paths.len()
+                );
+                match app_handle3.emit("platter:review-pending", req.clone()) {
+                    Ok(()) => eprintln!("[platter]   emit ok"),
+                    Err(e) => eprintln!("[platter]   emit FAILED: {}", e),
+                }
             });
 
             // …and whenever a review resolves (by user, timeout, or app shutdown)
             let app_handle4 = app.handle().clone();
             bus_for_setup.set_resolver(move |id, decision| {
+                eprintln!(
+                    "[platter] review-resolved: id={} decision={:?}",
+                    id, decision.decision
+                );
                 let _ = app_handle4.emit(
                     "platter:review-resolved",
                     serde_json::json!({ "id": id, "decision": decision }),

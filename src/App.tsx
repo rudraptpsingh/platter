@@ -176,6 +176,12 @@ function AppInner() {
   // Listen for new MCP review requests
   useEffect(() => {
     const unlistenPending = listen<ReviewRequest>("platter:review-pending", async (event) => {
+      console.debug(
+        "[platter] review-pending:",
+        event.payload.id,
+        "mode:", event.payload.mode,
+        "paths:", event.payload.paths.length,
+      );
       setPendingReviews((prev) => {
         if (prev.some((p) => p.id === event.payload.id)) return prev;
         return [...prev, event.payload];
@@ -189,20 +195,19 @@ function AppInner() {
       // Skip if there's already a review on screen (don't yank the user away
       // from the one they're already looking at).
       try {
-        const win = getCurrentWindow();
         const alreadyOnScreen = pendingReviews.length > 0;
 
-        // Always make sure the window is visible + unminimized + focused.
-        // No-ops if it's already in that state.
-        await win.show().catch(() => {});
-        const minimized = await win.isMinimized().catch(() => false);
-        if (minimized) {
-          await win.unminimize().catch(() => {});
-        }
         if (!alreadyOnScreen) {
-          await win.setFocus().catch(() => {});
+          // Use the Rust force_foreground command — it sets
+          // NSWindowCollectionBehaviorMoveToActiveSpace + calls
+          // activateIgnoringOtherApps:YES so the window comes to the
+          // current Space, not the user being yanked to wherever the
+          // window was before. JS-side win.setFocus() is unreliable for
+          // cross-Space activation on macOS.
+          await api.forceForeground().catch(() => {});
         }
 
+        const win = getCurrentWindow();
         const focused = await win.isFocused().catch(() => true);
         if (!focused && !alreadyOnScreen) {
           // Belt-and-braces: dock bounce + notification banner if focus didn't take
