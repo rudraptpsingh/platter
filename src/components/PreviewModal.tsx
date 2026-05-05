@@ -95,6 +95,11 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
       if (e.key.toLowerCase() === "r") {
         api.decide(file.path, "rejected").then(() => onDecided(file.path, "rejected"));
       }
+      // S → open Share dialog (only if the file kind is shareable)
+      if (e.key.toLowerCase() === "s" && !e.metaKey && !e.ctrlKey && shareable) {
+        e.preventDefault();
+        setShowShare(true);
+      }
     }
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
