@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
 import type { FileRow, FilterDecision, FilterKind, ReviewRequest, TreeNode } from "./types";
 import { api, basename, relativeTime } from "./lib/api";
@@ -6,6 +6,7 @@ import { FolderTree } from "./components/FolderTree";
 import { Card } from "./components/Card";
 import { PreviewModal } from "./components/PreviewModal";
 import { ReviewModal } from "./components/ReviewModal";
+import { Settings } from "./components/Settings";
 
 import "./styles/tokens.css";
 import "./styles/app.css";
@@ -25,6 +26,7 @@ export default function App() {
   const [filterDecision, setFilterDecision] = useState<FilterDecision>("all");
   const [previewFile, setPreviewFile] = useState<FileRow | null>(null);
   const [pendingReviews, setPendingReviews] = useState<ReviewRequest[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
   const [scanning, setScanning] = useState(true);
   const [lastScan, setLastScan] = useState(Date.now() / 1000);
 
@@ -54,16 +56,52 @@ export default function App() {
     api.listPendingReviews().then(setPendingReviews).catch(() => {});
   }, [refreshTree, refreshRecent]);
 
+  // Global keyboard shortcuts: ⌘, opens settings, Space opens Quicklook for first card
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const inInput =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (e.metaKey && e.key === ",") {
+        e.preventDefault();
+        setShowSettings(true);
+      } else if (
+        e.key === " " &&
+        !inInput &&
+        !previewFile &&
+        pendingReviews.length === 0 &&
+        !showSettings
+      ) {
+        // Quicklook: open the first visible card
+        const candidate = filteredFilesRef.current[0];
+        if (candidate) {
+          e.preventDefault();
+          setPreviewFile(candidate);
+        }
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [previewFile, pendingReviews.length, showSettings]);
+
   // Listen for new MCP review requests
   useEffect(() => {
-    const unlisten = listen<ReviewRequest>("platter:review-pending", (event) => {
+    const unlistenPending = listen<ReviewRequest>("platter:review-pending", (event) => {
       setPendingReviews((prev) => {
         if (prev.some((p) => p.id === event.payload.id)) return prev;
         return [...prev, event.payload];
       });
     });
+    // Server-side resolution (timeout, shutdown, or user accepted from elsewhere)
+    // — drop the matching modal so it doesn't stay stale.
+    const unlistenResolved = listen<{ id: string }>("platter:review-resolved", (event) => {
+      setPendingReviews((prev) => prev.filter((p) => p.id !== event.payload.id));
+    });
     return () => {
-      unlisten.then((u) => u());
+      unlistenPending.then((u) => u());
+      unlistenResolved.then((u) => u());
     };
   }, []);
 
@@ -109,6 +147,8 @@ export default function App() {
   const sourceFiles: FileRow[] =
     view === "home" ? recent : view === "search" ? searchHits : files;
 
+  const filteredFilesRef = useRef<FileRow[]>([]);
+
   const filteredFiles = useMemo(() => {
     return sourceFiles.filter((f) => {
       if (filterKind !== "all" && f.kind !== filterKind) return false;
@@ -120,6 +160,10 @@ export default function App() {
       return true;
     });
   }, [sourceFiles, filterKind, filterDecision, search, view]);
+
+  useEffect(() => {
+    filteredFilesRef.current = filteredFiles;
+  }, [filteredFiles]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: sourceFiles.length };
@@ -201,6 +245,7 @@ export default function App() {
           setFilterDecision={setFilterDecision}
           counts={counts}
           onRescan={() => api.rescan()}
+          onOpenSettings={() => setShowSettings(true)}
         />
 
         {view === "home" && recent.length === 0 && scanning ? (
@@ -266,6 +311,17 @@ export default function App() {
                 prev.filter((p) => p.id !== pendingReviews[0].id)
               )
             }
+          />
+        )}
+
+        {showSettings && (
+          <Settings
+            onClose={() => setShowSettings(false)}
+            onChanged={() => {
+              refreshTree();
+              refreshRecent();
+              refreshFiles(activePath);
+            }}
           />
         )}
       </main>
@@ -341,6 +397,7 @@ function Toolbar({
   setFilterDecision,
   counts,
   onRescan,
+  onOpenSettings,
 }: {
   view: View;
   activePath: string | null;
@@ -356,6 +413,7 @@ function Toolbar({
     decisions: { approved: number; rejected: number; undecided: number };
   };
   onRescan: () => void;
+  onOpenSettings: () => void;
 }) {
   const breadcrumb = activePath ? activePath.replace(/\/Users\/[^/]+/, "~") : null;
   const parts = breadcrumb?.split("/").filter(Boolean) ?? [];
@@ -428,6 +486,17 @@ function Toolbar({
               strokeWidth="1.1"
               strokeLinecap="round"
               strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        <button className="tool-icon" onClick={onOpenSettings} title="Settings (⌘,)">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="7" cy="7" r="2" stroke="currentColor" strokeWidth="1.2" />
+            <path
+              d="M7 1v1.5M7 11.5V13M13 7h-1.5M2.5 7H1M11.24 2.76l-1.06 1.06M3.82 10.18l-1.06 1.06M11.24 11.24l-1.06-1.06M3.82 3.82L2.76 2.76"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
             />
           </svg>
         </button>

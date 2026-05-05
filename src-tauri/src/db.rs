@@ -88,6 +88,21 @@ impl Db {
         Ok(id)
     }
 
+    pub fn remove_root(&self, id: i64) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute("DELETE FROM roots WHERE id = ?", params![id])?;
+        Ok(())
+    }
+
+    pub fn set_root_enabled(&self, id: i64, enabled: bool) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE roots SET enabled = ? WHERE id = ?",
+            params![if enabled { 1 } else { 0 }, id],
+        )?;
+        Ok(())
+    }
+
     pub fn list_roots(&self) -> Result<Vec<RootRow>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(

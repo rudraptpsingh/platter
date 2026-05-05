@@ -69,6 +69,7 @@ pub struct ReviewBus {
     pending: Mutex<HashMap<String, mpsc::Sender<ReviewDecision>>>,
     requests: Mutex<HashMap<String, ReviewRequest>>,
     notifier: Mutex<Option<Box<dyn Fn(&ReviewRequest) + Send + Sync>>>,
+    resolver: Mutex<Option<Box<dyn Fn(&str, &ReviewDecision) + Send + Sync>>>,
 }
 
 impl ReviewBus {
@@ -77,6 +78,7 @@ impl ReviewBus {
             pending: Mutex::new(HashMap::new()),
             requests: Mutex::new(HashMap::new()),
             notifier: Mutex::new(None),
+            resolver: Mutex::new(None),
         }
     }
 
@@ -85,6 +87,19 @@ impl ReviewBus {
         F: Fn(&ReviewRequest) + Send + Sync + 'static,
     {
         *self.notifier.lock() = Some(Box::new(f));
+    }
+
+    pub fn set_resolver<F>(&self, f: F)
+    where
+        F: Fn(&str, &ReviewDecision) + Send + Sync + 'static,
+    {
+        *self.resolver.lock() = Some(Box::new(f));
+    }
+
+    fn fire_resolved(&self, id: &str, decision: &ReviewDecision) {
+        if let Some(resolver) = self.resolver.lock().as_ref() {
+            resolver(id, decision);
+        }
     }
 
     pub fn submit(&self, req: ReviewRequest) -> mpsc::Receiver<ReviewDecision> {
@@ -101,9 +116,12 @@ impl ReviewBus {
         let tx = self.pending.lock().remove(&decision.id);
         self.requests.lock().remove(&decision.id);
         match tx {
-            Some(sender) => sender
-                .send(decision)
-                .map_err(|_| "receiver dropped".to_string()),
+            Some(sender) => {
+                self.fire_resolved(&decision.id, &decision);
+                sender
+                    .send(decision)
+                    .map_err(|_| "receiver dropped".to_string())
+            }
             None => Err(format!("no pending review with id {}", decision.id)),
         }
     }
@@ -118,15 +136,17 @@ impl ReviewBus {
         let ids: Vec<String> = pending.keys().cloned().collect();
         for id in ids {
             if let Some(tx) = pending.remove(&id) {
-                let _ = tx.send(ReviewDecision {
-                    id,
+                let decision = ReviewDecision {
+                    id: id.clone(),
                     decision: DecisionKind::Dismissed,
                     picked: None,
                     ranking: None,
                     per_item: None,
                     note: None,
                     decided_at: now.clone(),
-                });
+                };
+                self.fire_resolved(&id, &decision);
+                let _ = tx.send(decision);
             }
         }
         self.requests.lock().clear();
@@ -142,11 +162,10 @@ impl ReviewBus {
         match rx.recv_timeout(timeout) {
             Ok(d) => d,
             Err(_) => {
-                // Cleanup pending entry
                 self.pending.lock().remove(id);
                 self.requests.lock().remove(id);
                 let elapsed = started.elapsed().as_secs();
-                ReviewDecision {
+                let decision = ReviewDecision {
                     id: id.to_string(),
                     decision: DecisionKind::Timeout,
                     picked: None,
@@ -154,7 +173,9 @@ impl ReviewBus {
                     per_item: None,
                     note: Some(format!("timed out after {}s", elapsed)),
                     decided_at: chrono::Utc::now().to_rfc3339(),
-                }
+                };
+                self.fire_resolved(id, &decision);
+                decision
             }
         }
     }

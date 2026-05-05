@@ -183,6 +183,77 @@ fn list_pending_reviews(state: State<AppState>) -> Vec<mcp::ReviewRequest> {
     state.bus.list_pending()
 }
 
+#[derive(serde::Serialize)]
+struct RootInfo {
+    id: i64,
+    glob: String,
+    label: String,
+    enabled: bool,
+    is_default: bool,
+    resolved_count: i64,
+    file_count: i64,
+}
+
+#[tauri::command]
+fn list_root_info(state: State<AppState>) -> Result<Vec<RootInfo>, String> {
+    let roots = state.db.list_roots().map_err(|e| e.to_string())?;
+    let default_globs: std::collections::HashSet<&str> =
+        DEFAULT_ROOTS.iter().map(|(g, _)| *g).collect();
+
+    let info = roots
+        .into_iter()
+        .map(|r| {
+            let leaves = scanner::expand_glob(&r.glob);
+            let resolved_count = leaves.len() as i64;
+            let file_count: i64 = leaves
+                .iter()
+                .map(|d| {
+                    state
+                        .db
+                        .count_files_under(&d.to_string_lossy())
+                        .unwrap_or(0)
+                })
+                .sum();
+            let is_default = default_globs.contains(r.glob.as_str());
+            RootInfo {
+                id: r.id,
+                glob: r.glob,
+                label: r.label,
+                enabled: r.enabled,
+                is_default,
+                resolved_count,
+                file_count,
+            }
+        })
+        .collect();
+    Ok(info)
+}
+
+#[tauri::command]
+fn add_root(glob: String, label: Option<String>, state: State<AppState>) -> Result<i64, String> {
+    let label = label.unwrap_or_else(|| {
+        // Auto-derive a friendly label from the glob
+        glob.replace("~/", "")
+            .replace("**", "*")
+            .trim_end_matches('/')
+            .to_string()
+    });
+    state.db.add_root(&glob, &label).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn remove_root(id: i64, state: State<AppState>) -> Result<(), String> {
+    state.db.remove_root(id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn toggle_root(id: i64, enabled: bool, state: State<AppState>) -> Result<(), String> {
+    state
+        .db
+        .set_root_enabled(id, enabled)
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn resolve_review(decision: ReviewDecision, state: State<AppState>) -> Result<(), String> {
     state.bus.resolve(decision)
@@ -221,7 +292,11 @@ pub fn run() {
             read_text_file,
             read_file_bytes,
             list_pending_reviews,
-            resolve_review
+            resolve_review,
+            list_root_info,
+            add_root,
+            remove_root,
+            toggle_root
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
@@ -243,6 +318,15 @@ pub fn run() {
             let app_handle3 = app.handle().clone();
             bus_for_setup.set_notifier(move |req| {
                 let _ = app_handle3.emit("platter:review-pending", req.clone());
+            });
+
+            // …and whenever a review resolves (by user, timeout, or app shutdown)
+            let app_handle4 = app.handle().clone();
+            bus_for_setup.set_resolver(move |id, decision| {
+                let _ = app_handle4.emit(
+                    "platter:review-resolved",
+                    serde_json::json!({ "id": id, "decision": decision }),
+                );
             });
 
             // MCP socket listener (for stdio children spawned by Claude Code)

@@ -25,6 +25,16 @@ export type Decision = "approved" | "rejected";
 export type FilterKind = "all" | "html" | "png" | "jpg" | "pdf" | "svg" | "md";
 export type FilterDecision = "all" | "approved" | "rejected" | "undecided";
 
+export type RootInfo = {
+  id: number;
+  glob: string;
+  label: string;
+  enabled: boolean;
+  is_default: boolean;
+  resolved_count: number;
+  file_count: number;
+};
+
 export type ReviewMode = "approve_reject" | "rank" | "pick_one";
 
 export type ReviewRequest = {

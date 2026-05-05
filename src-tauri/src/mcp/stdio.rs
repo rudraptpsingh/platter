@@ -1,6 +1,7 @@
 use super::socket::connect_to_gui;
 use anyhow::Result;
 use std::io::{BufRead, BufReader, Write};
+use std::net::Shutdown;
 use std::sync::Arc;
 use std::thread;
 
@@ -28,15 +29,17 @@ pub fn run() -> Result<()> {
             s.write_all(line.as_bytes())?;
             s.flush()?;
         }
+        // Stdin EOF — shut down the write half of the socket so the GUI sees
+        // EOF and closes its end. Without this, the GUI keeps the connection
+        // open and our reader thread (B) below blocks forever.
+        let s = stream_in.lock();
+        let _ = s.shutdown(Shutdown::Write);
         Ok(())
     });
 
     // Thread B: socket → stdout
     let stream_out = stream.clone();
     let out_handle = thread::spawn(move || -> Result<()> {
-        // We can't share the BufReader across the mutex, so clone the underlying
-        // stream and read from it directly. UnixStream is bidirectional and
-        // try_clone() shares the same underlying file descriptor.
         let read_stream = {
             let s = stream_out.lock();
             s.try_clone()?
@@ -57,7 +60,7 @@ pub fn run() -> Result<()> {
         Ok(())
     });
 
-    // Wait for either side to terminate (Claude closes stdin, or GUI dies)
+    // Wait for both halves
     let _ = in_handle.join();
     let _ = out_handle.join();
     Ok(())
