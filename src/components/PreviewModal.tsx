@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import type { FileRow } from "../types";
 import { api, basename, dirname, fileUrl, formatSize, relativeTime } from "../lib/api";
 import { getBlobUrl } from "../lib/blobs";
+import { copySourceToClipboard, copySourceAsMarkdown, isTextCopyable } from "../lib/copy-source";
+import { useToast } from "./Toast";
 
 type Props = {
   file: FileRow;
@@ -13,6 +15,27 @@ type Props = {
 
 export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }: Props) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const toast = useToast();
+  const copyable = isTextCopyable(file.path);
+
+  async function copyCode(asMarkdown: boolean) {
+    try {
+      const { lines } = asMarkdown
+        ? await copySourceAsMarkdown(file.path)
+        : await copySourceToClipboard(file.path);
+      toast.show({
+        message: asMarkdown
+          ? `Copied ${basename(file.path)} as markdown · ${lines} lines`
+          : `Copied ${basename(file.path)} · ${lines} lines`,
+        tone: "ok",
+      });
+    } catch (e) {
+      toast.show({
+        message: `Copy failed: ${e instanceof Error ? e.message : String(e)}`,
+        tone: "warn",
+      });
+    }
+  }
   useEffect(() => {
     let cancelled = false;
     setBlobUrl(null);
@@ -49,6 +72,19 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
       // Don't intercept when typing in inputs
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+
+      // ⌘C copies file source · ⌘⇧C copies as a markdown fenced block.
+      // Skip if there's a real text selection — let the OS handle copy normally.
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c") {
+        const sel = window.getSelection?.();
+        const hasSelection = sel && sel.toString().length > 0;
+        if (!hasSelection && copyable) {
+          e.preventDefault();
+          copyCode(e.shiftKey);
+          return;
+        }
+      }
+
       if (e.key.toLowerCase() === "a") {
         api.decide(file.path, "approved").then(() => onDecided(file.path, "approved"));
       }
@@ -58,7 +94,8 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
     }
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
-  }, [file.path, prev, next, onClose, onDecided, onNavigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file.path, prev, next, copyable, onClose, onDecided, onNavigate]);
 
   function decide(d: "approved" | "rejected") {
     api.decide(file.path, d).then(() => onDecided(file.path, d));
@@ -209,6 +246,12 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-3)", lineHeight: 1.9 }}>
                 <div><kbd style={kbd}>←</kbd> <kbd style={kbd}>→</kbd> previous / next</div>
                 <div><kbd style={kbd}>A</kbd> approve · <kbd style={kbd}>R</kbd> reject</div>
+                {copyable && (
+                  <div>
+                    <kbd style={kbd}>⌘</kbd><kbd style={kbd}>C</kbd> copy source ·{" "}
+                    <kbd style={kbd}>⌘</kbd><kbd style={kbd}>⇧</kbd><kbd style={kbd}>C</kbd> as markdown
+                  </div>
+                )}
                 <div><kbd style={kbd}>Esc</kbd> close</div>
               </div>
             </div>
@@ -227,6 +270,27 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
               </svg>
               Approve
             </button>
+            {copyable && (
+              <button
+                className="btn"
+                onClick={() => copyCode(false)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  copyCode(true);
+                }}
+                title="Copy source (⌘C) · right-click for markdown"
+              >
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                  <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.2" />
+                  <path
+                    d="M5 3V2a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-1"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                  />
+                </svg>
+                Copy
+              </button>
+            )}
             <button className="btn" onClick={reveal} title="Reveal in Finder">
               <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
                 <path d="M2 4l5 4 5-4M2 4v8h10V4" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />

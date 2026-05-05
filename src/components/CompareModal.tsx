@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type { FileRow } from "../types";
 import { api, basename, formatSize, relativeTime } from "../lib/api";
 import { getBlobUrl } from "../lib/blobs";
+import { copySourceToClipboard, isTextCopyable } from "../lib/copy-source";
+import { useToast } from "./Toast";
 
 import "../styles/compare-modal.css";
 
@@ -81,6 +83,23 @@ function Pane({
   const [url, setUrl] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.5);
+  const toast = useToast();
+  const copyable = isTextCopyable(file.path);
+
+  async function copyCode() {
+    try {
+      const { lines } = await copySourceToClipboard(file.path);
+      toast.show({
+        message: `Copied ${basename(file.path)} · ${lines} lines`,
+        tone: "ok",
+      });
+    } catch (e) {
+      toast.show({
+        message: `Copy failed: ${e instanceof Error ? e.message : String(e)}`,
+        tone: "warn",
+      });
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -174,6 +193,28 @@ function Pane({
       </div>
 
       <div className="compare-pane__actions">
+        {copyable && (
+          <button
+            className="btn-decision"
+            style={{
+              flex: "0 0 auto",
+              borderColor: "var(--line-strong)",
+              color: "var(--ink-2)",
+            }}
+            onClick={copyCode}
+            title="Copy source"
+          >
+            <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+              <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.2" />
+              <path
+                d="M5 3V2a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-1"
+                stroke="currentColor"
+                strokeWidth="1.2"
+              />
+            </svg>
+            Copy
+          </button>
+        )}
         <button
           className="btn-decision btn-decision--reject"
           onClick={() =>
