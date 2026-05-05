@@ -162,6 +162,36 @@ impl Db {
         Ok(())
     }
 
+    pub fn get_file(&self, path: &str) -> Result<Option<FileRow>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT id, path, root_id, kind, size, mtime, created_at, last_seen,
+                   decision, decision_note, decided_at
+            FROM files
+            WHERE path = ?
+            "#,
+        )?;
+        let row = stmt
+            .query_row(params![path], |r| {
+                Ok(FileRow {
+                    id: r.get(0)?,
+                    path: r.get(1)?,
+                    root_id: r.get(2)?,
+                    kind: r.get(3)?,
+                    size: r.get(4)?,
+                    mtime: r.get(5)?,
+                    created_at: r.get(6)?,
+                    last_seen: r.get(7)?,
+                    decision: r.get(8)?,
+                    decision_note: r.get(9)?,
+                    decided_at: r.get(10)?,
+                })
+            })
+            .ok();
+        Ok(row)
+    }
+
     pub fn list_files_in_dir(&self, dir: &str) -> Result<Vec<FileRow>> {
         let pattern = format!("{}/%", dir.trim_end_matches('/'));
         // Only direct children — no nested files

@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  isPermissionGranted,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 import type { FileRow, FilterDecision, FilterKind, ReviewRequest, TreeNode } from "./types";
 import { api, basename, relativeTime } from "./lib/api";
 import { FolderTree } from "./components/FolderTree";
 import { Card } from "./components/Card";
 import { PreviewModal } from "./components/PreviewModal";
 import { ReviewModal } from "./components/ReviewModal";
+import { ReviewSetView } from "./components/ReviewSetView";
 import { Settings } from "./components/Settings";
+import { detectReviewSet } from "./lib/review-set";
 
 import "./styles/tokens.css";
 import "./styles/app.css";
@@ -56,6 +64,13 @@ export default function App() {
     api.listPendingReviews().then(setPendingReviews).catch(() => {});
   }, [refreshTree, refreshRecent]);
 
+  // Dock badge tracks pending review count
+  useEffect(() => {
+    const win = getCurrentWindow();
+    const count = pendingReviews.length;
+    win.setBadgeCount(count > 0 ? count : undefined).catch(() => {});
+  }, [pendingReviews.length]);
+
   // Global keyboard shortcuts: ⌘, opens settings, Space opens Quicklook for first card
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -86,13 +101,51 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [previewFile, pendingReviews.length, showSettings]);
 
+  // Request notification permission once on startup (no-op if already granted/denied)
+  useEffect(() => {
+    (async () => {
+      try {
+        const granted = await isPermissionGranted();
+        if (!granted) await requestPermission();
+      } catch {
+        // ignore — non-fatal
+      }
+    })();
+  }, []);
+
   // Listen for new MCP review requests
   useEffect(() => {
-    const unlistenPending = listen<ReviewRequest>("platter:review-pending", (event) => {
+    const unlistenPending = listen<ReviewRequest>("platter:review-pending", async (event) => {
       setPendingReviews((prev) => {
         if (prev.some((p) => p.id === event.payload.id)) return prev;
         return [...prev, event.payload];
       });
+
+      // If platter isn't focused, get the user's attention
+      try {
+        const win = getCurrentWindow();
+        const focused = await win.isFocused();
+        if (!focused) {
+          // Bounce dock + post a system notification
+          win.requestUserAttention(1).catch(() => {});
+          const ctx = (event.payload.context ?? {}) as { task?: string };
+          const taskLabel = ctx.task ? ` for ${ctx.task}` : "";
+          const n = event.payload.paths.length;
+          try {
+            const granted = await isPermissionGranted();
+            if (granted) {
+              sendNotification({
+                title: "Claude wants your review",
+                body: `${n} mockup${n === 1 ? "" : "s"}${taskLabel}. Click to review.`,
+              });
+            }
+          } catch {
+            // ignore
+          }
+        }
+      } catch {
+        // ignore — non-fatal
+      }
     });
     // Server-side resolution (timeout, shutdown, or user accepted from elsewhere)
     // — drop the matching modal so it doesn't stay stale.
@@ -164,6 +217,15 @@ export default function App() {
   useEffect(() => {
     filteredFilesRef.current = filteredFiles;
   }, [filteredFiles]);
+
+  // Auto-promote a folder to "review set" view when it matches the pattern:
+  // index.html + numbered HTML siblings + (optional) sibling .md plan.
+  // Only kicks in for the folder view, with no active filters or search.
+  const reviewSet = useMemo(() => {
+    if (view !== "folder") return null;
+    if (filterKind !== "all" || filterDecision !== "all" || search) return null;
+    return detectReviewSet(files);
+  }, [view, filterKind, filterDecision, search, files]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: sourceFiles.length };
@@ -277,6 +339,11 @@ export default function App() {
             <h2 className="center-state__h">Nothing here.</h2>
             <p className="center-state__sub">Try clearing your filters.</p>
           </div>
+        ) : reviewSet ? (
+          <ReviewSetView
+            set={reviewSet}
+            onOpenFile={(f) => setPreviewFile(f)}
+          />
         ) : (
           <div className="masonry-wrap">
             <div className="masonry">

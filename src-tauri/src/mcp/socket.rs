@@ -1,4 +1,4 @@
-use super::bus::SharedBus;
+use super::context::McpContext;
 use super::protocol::{dispatch, JsonRpcRequest};
 use anyhow::Result;
 use std::io::{BufRead, BufReader, Write};
@@ -16,7 +16,7 @@ pub fn socket_path() -> PathBuf {
 /// Run the GUI-side socket listener. Each connecting client gets its own
 /// thread that proxies JSON-RPC messages to the review bus. Returns a
 /// handle on the listener thread.
-pub fn spawn_listener(bus: SharedBus) -> Result<()> {
+pub fn spawn_listener(ctx: McpContext) -> Result<()> {
     let path = socket_path();
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).ok();
@@ -31,9 +31,9 @@ pub fn spawn_listener(bus: SharedBus) -> Result<()> {
         for incoming in listener.incoming() {
             match incoming {
                 Ok(stream) => {
-                    let bus = bus.clone();
+                    let ctx = ctx.clone();
                     thread::spawn(move || {
-                        if let Err(e) = handle_client(stream, bus) {
+                        if let Err(e) = handle_client(stream, ctx) {
                             eprintln!("[platter] mcp client error: {e}");
                         }
                     });
@@ -47,7 +47,7 @@ pub fn spawn_listener(bus: SharedBus) -> Result<()> {
     Ok(())
 }
 
-fn handle_client(mut stream: UnixStream, bus: SharedBus) -> Result<()> {
+fn handle_client(stream: UnixStream, ctx: McpContext) -> Result<()> {
     let read_stream = stream.try_clone()?;
     let mut reader = BufReader::new(read_stream);
 
@@ -66,7 +66,7 @@ fn handle_client(mut stream: UnixStream, bus: SharedBus) -> Result<()> {
         // Each MCP request is its own thread because tools/call BLOCKS
         // waiting for a human. We can't process the next request until
         // this one finishes if we serialize.
-        let bus_for_thread = bus.clone();
+        let ctx_for_thread = ctx.clone();
         let mut stream_for_thread = match stream.try_clone() {
             Ok(s) => s,
             Err(_) => break,
@@ -75,7 +75,7 @@ fn handle_client(mut stream: UnixStream, bus: SharedBus) -> Result<()> {
 
         thread::spawn(move || {
             let response = match serde_json::from_str::<JsonRpcRequest>(&line_clone) {
-                Ok(req) => dispatch(req, &bus_for_thread),
+                Ok(req) => dispatch(req, &ctx_for_thread),
                 Err(e) => Some(super::protocol::err(
                     serde_json::Value::Null,
                     -32700,

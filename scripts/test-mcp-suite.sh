@@ -136,6 +136,80 @@ expect "ping returns ok"        "$out" '"id":7'
 expect "no error"               "$out" '"result":{}'
 
 # ──────────────────────────────────────────────────────
+printf "\n${Y}11. tools/list — all four tools${N}\n"
+out=$(mcp "$(cat <<EOF
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
+{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
+EOF
+)")
+expect "present_mockups"        "$out" '"name":"present_mockups"'
+expect "record_decision"        "$out" '"name":"record_decision"'
+expect "get_decision_history"   "$out" '"name":"get_decision_history"'
+expect "list_recent"            "$out" '"name":"list_recent"'
+
+# ──────────────────────────────────────────────────────
+printf "\n${Y}12. record_decision — happy path${N}\n"
+TARGET="$MOCKUPS_DIR/01-empty-state.html"
+out=$(mcp "$(cat <<EOF
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
+{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"record_decision","arguments":{"path":"$TARGET","verdict":"approved","note":"smoke test"}}}
+EOF
+)")
+expect "verdict echoed"         "$out" 'approved'
+expect "smoke test note"        "$out" 'smoke test'
+expect "recorded_at iso"        "$out" 'recorded_at'
+
+# ──────────────────────────────────────────────────────
+printf "\n${Y}13. record_decision — bad verdict${N}\n"
+out=$(mcp "$(cat <<EOF
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
+{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"record_decision","arguments":{"path":"$TARGET","verdict":"maybe"}}}
+EOF
+)")
+expect "rejects bad verdict"    "$out" "must be 'approved' or 'rejected'"
+
+# ──────────────────────────────────────────────────────
+printf "\n${Y}14. get_decision_history — looks up paths${N}\n"
+out=$(mcp "$(cat <<EOF
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
+{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"get_decision_history","arguments":{"paths":["$TARGET","/nonexistent/path.html"]}}}
+EOF
+)")
+expect "items array"            "$out" 'items'
+expect "approved decision"      "$out" 'approved'
+expect "null for unseen"        "$out" 'decision\": null'
+
+# ──────────────────────────────────────────────────────
+printf "\n${Y}15. get_decision_history — missing paths${N}\n"
+out=$(mcp '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
+{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"get_decision_history","arguments":{}}}
+')
+expect "rejects empty"          "$out" 'paths must be a non-empty array'
+
+# ──────────────────────────────────────────────────────
+printf "\n${Y}16. list_recent — basic${N}\n"
+out=$(mcp '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
+{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"list_recent","arguments":{"limit":5}}}
+')
+expect "items array"            "$out" 'items'
+expect "count field"            "$out" 'count'
+
+# ──────────────────────────────────────────────────────
+printf "\n${Y}17. list_recent — kind filter${N}\n"
+out=$(mcp '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
+{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"list_recent","arguments":{"limit":50,"kind":"html"}}}
+')
+expect "html files only"        "$out" 'kind'
+# Negative check: shouldn't contain ".png" or ".jpg" if filter works
+if echo "$out" | grep -q '"kind": "png"'; then
+  printf "  ${R}✗${N} kind filter leaked non-html\n"
+  FAIL=$((FAIL+1))
+else
+  printf "  ${G}✓${N} kind filter excludes other kinds\n"
+  PASS=$((PASS+1))
+fi
+
+# ──────────────────────────────────────────────────────
 printf "\n${Y}━━━ summary ━━━${N}\n"
 TOTAL=$((PASS+FAIL))
 if [[ $FAIL -eq 0 ]]; then

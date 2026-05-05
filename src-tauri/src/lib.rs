@@ -4,7 +4,7 @@ mod scanner;
 mod watcher;
 
 use db::{Db, FileRow, RootRow};
-use mcp::{ReviewBus, ReviewDecision};
+use mcp::{McpContext, ReviewBus, ReviewDecision};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{Emitter, State};
@@ -277,6 +277,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(AppState {
             db: db.clone(),
             bus: bus.clone(),
@@ -330,7 +331,11 @@ pub fn run() {
             });
 
             // MCP socket listener (for stdio children spawned by Claude Code)
-            if let Err(e) = mcp::socket::spawn_listener(bus_for_setup.clone()) {
+            let mcp_ctx = McpContext {
+                bus: bus_for_setup.clone(),
+                db: db.clone(),
+            };
+            if let Err(e) = mcp::socket::spawn_listener(mcp_ctx) {
                 eprintln!("[platter] failed to start MCP socket: {e}");
             }
             Ok(())
