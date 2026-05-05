@@ -1,0 +1,8 @@
+# Vanity URLs → GitHub
+/repo            https://github.com/rudraptpsingh/platter            301
+/source          https://github.com/rudraptpsingh/platter            301
+/issues          https://github.com/rudraptpsingh/platter/issues     301
+/releases        https://github.com/rudraptpsingh/platter/releases   301
+/download        https://github.com/rudraptpsingh/platter/releases   301
+/roadmap         https://github.com/rudraptpsingh/platter/blob/main/docs/roadmap.md  301
+/notes           https://github.com/rudraptpsingh/platter/blob/main/mockups/v1/00-design-notes.md  301

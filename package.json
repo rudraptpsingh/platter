@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "landing:preview": "npx wrangler pages dev ./landing --port 4321",
+    "landing:deploy": "npx wrangler pages deploy ./landing --project-name=platter"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
