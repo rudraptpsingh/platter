@@ -185,12 +185,27 @@ function AppInner() {
         asset_count: event.payload.paths.length,
       });
 
-      // If platter isn't focused, get the user's attention
+      // The review IS the user's job right now — bring the window forward.
+      // Skip if there's already a review on screen (don't yank the user away
+      // from the one they're already looking at).
       try {
         const win = getCurrentWindow();
-        const focused = await win.isFocused();
-        if (!focused) {
-          // Bounce dock + post a system notification
+        const alreadyOnScreen = pendingReviews.length > 0;
+
+        // Always make sure the window is visible + unminimized + focused.
+        // No-ops if it's already in that state.
+        await win.show().catch(() => {});
+        const minimized = await win.isMinimized().catch(() => false);
+        if (minimized) {
+          await win.unminimize().catch(() => {});
+        }
+        if (!alreadyOnScreen) {
+          await win.setFocus().catch(() => {});
+        }
+
+        const focused = await win.isFocused().catch(() => true);
+        if (!focused && !alreadyOnScreen) {
+          // Belt-and-braces: dock bounce + notification banner if focus didn't take
           win.requestUserAttention(1).catch(() => {});
           const ctx = (event.payload.context ?? {}) as { task?: string };
           const taskLabel = ctx.task ? ` for ${ctx.task}` : "";

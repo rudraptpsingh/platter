@@ -5,7 +5,8 @@ use std::time::Duration;
 
 pub const PROTOCOL_VERSION: &str = "2024-11-05";
 pub const SERVER_NAME: &str = "platter";
-pub const SERVER_VERSION: &str = "0.2.0";
+// Bumped at every release alongside Cargo.toml + tauri.conf.json + package.json.
+pub const SERVER_VERSION: &str = "0.4.0";
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct JsonRpcRequest {
