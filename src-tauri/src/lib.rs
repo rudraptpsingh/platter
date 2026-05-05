@@ -121,13 +121,37 @@ fn search_all(
 }
 
 fn nice_label(p: &std::path::Path) -> String {
-    // E.g. /Users/rp/github/Penova/mockups → "Penova / mockups"
-    let mut parts: Vec<String> = p
+    // Make folder labels readable in the sidebar. Heuristics:
+    //
+    //   ~/github/Penova/mockups
+    //     → "Penova / mockups"
+    //
+    //   ~/github/Penova/.claude/worktrees/confident-ramani/mockups
+    //     → "Penova · confident-ramani / mockups"
+    //
+    // The branch-name-only labels (`confident-ramani / mockups`) lose the
+    // repo context, which makes the sidebar a soup of disembodied codenames.
+    // Worktrees get a special collapsed form so the parent repo is visible.
+    let comps: Vec<String> = p
         .components()
-        .rev()
-        .take(3)
         .map(|c| c.as_os_str().to_string_lossy().to_string())
         .collect();
+    let n = comps.len();
+
+    // Detect `.../{repo}/.claude/worktrees/{branch}/{leaf}`
+    if n >= 5 {
+        let leaf = &comps[n - 1];
+        let branch = &comps[n - 2];
+        let worktrees_marker = &comps[n - 3];
+        let dotclaude = &comps[n - 4];
+        let repo = &comps[n - 5];
+        if dotclaude == ".claude" && worktrees_marker == "worktrees" {
+            return format!("{repo} · {branch} / {leaf}");
+        }
+    }
+
+    // Default: last 3 components joined with " / "
+    let mut parts: Vec<String> = comps.iter().rev().take(3).cloned().collect();
     parts.reverse();
     parts.join(" / ")
 }
