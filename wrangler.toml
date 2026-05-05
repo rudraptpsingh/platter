@@ -1,3 +1,16 @@
 name = "platter"
 compatibility_date = "2026-05-01"
 pages_build_output_dir = "./landing"
+
+# D1 database for telemetry events. Created with:
+#   npx wrangler d1 create platter-telemetry
+# Then paste the database_id below and apply the schema with:
+#   npx wrangler d1 execute platter-telemetry --remote --file=./migrations/001_init.sql
+
+[[d1_databases]]
+binding = "DB"
+database_name = "platter-telemetry"
+database_id = "8d0d0dba-7a40-4db7-b283-179bc9edc24b"
+
+# Set the dashboard secret with:
+#   npx wrangler pages secret put DASH_SECRET --project-name=platter

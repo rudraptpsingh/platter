@@ -14,7 +14,10 @@ import { PreviewModal } from "./components/PreviewModal";
 import { ReviewModal } from "./components/ReviewModal";
 import { ReviewSetView } from "./components/ReviewSetView";
 import { Settings } from "./components/Settings";
+import { UpdateBanner } from "./components/UpdateBanner";
+import { PrivacyConsent } from "./components/PrivacyConsent";
 import { detectReviewSet } from "./lib/review-set";
+import * as telemetry from "./lib/telemetry";
 
 import "./styles/tokens.css";
 import "./styles/app.css";
@@ -36,6 +39,7 @@ export default function App() {
   const [pendingReviews, setPendingReviews] = useState<ReviewRequest[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [scanning, setScanning] = useState(true);
+  const [showConsent, setShowConsent] = useState(false);
   const [lastScan, setLastScan] = useState(Date.now() / 1000);
 
   const refreshTree = useCallback(async () => {
@@ -62,6 +66,16 @@ export default function App() {
     refreshTree().then(() => setLastScan(Date.now() / 1000));
     refreshRecent();
     api.listPendingReviews().then(setPendingReviews).catch(() => {});
+
+    // First-run consent prompt — only inside the actual Tauri app (not the browser dev preview).
+    telemetry.init();
+    if (telemetry.getConsent() === "pending") {
+      telemetry.isTauri().then((ok) => {
+        if (ok) setShowConsent(true);
+      });
+    } else if (telemetry.getConsent() === "granted") {
+      telemetry.track("app_launched", { source: "startup" });
+    }
   }, [refreshTree, refreshRecent]);
 
   // Dock badge tracks pending review count
@@ -120,6 +134,10 @@ export default function App() {
         if (prev.some((p) => p.id === event.payload.id)) return prev;
         return [...prev, event.payload];
       });
+      telemetry.track("review_started", {
+        mode: event.payload.mode,
+        asset_count: event.payload.paths.length,
+      });
 
       // If platter isn't focused, get the user's attention
       try {
@@ -149,9 +167,15 @@ export default function App() {
     });
     // Server-side resolution (timeout, shutdown, or user accepted from elsewhere)
     // — drop the matching modal so it doesn't stay stale.
-    const unlistenResolved = listen<{ id: string }>("platter:review-resolved", (event) => {
-      setPendingReviews((prev) => prev.filter((p) => p.id !== event.payload.id));
-    });
+    const unlistenResolved = listen<{ id: string; decision: { decision: string } }>(
+      "platter:review-resolved",
+      (event) => {
+        setPendingReviews((prev) => prev.filter((p) => p.id !== event.payload.id));
+        telemetry.track("review_resolved", {
+          decision: event.payload.decision?.decision,
+        });
+      },
+    );
     return () => {
       unlistenPending.then((u) => u());
       unlistenResolved.then((u) => u());
@@ -388,6 +412,21 @@ export default function App() {
               refreshTree();
               refreshRecent();
               refreshFiles(activePath);
+            }}
+          />
+        )}
+
+        <UpdateBanner />
+
+        {showConsent && (
+          <PrivacyConsent
+            onDecide={(choice) => {
+              if (choice === "later") {
+                setShowConsent(false);
+                return;
+              }
+              telemetry.setConsent(choice);
+              setShowConsent(false);
             }}
           />
         )}

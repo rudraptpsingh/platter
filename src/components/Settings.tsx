@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { RootInfo } from "../types";
 import { api } from "../lib/api";
+import * as telemetry from "../lib/telemetry";
 
 import "../styles/settings.css";
 
@@ -10,13 +11,14 @@ type Props = {
 };
 
 export function Settings({ onClose, onChanged }: Props) {
-  const [section, setSection] = useState<"roots" | "claude" | "about">("roots");
+  const [section, setSection] = useState<"roots" | "claude" | "privacy" | "about">("roots");
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
     window.addEventListener("keydown", onKey);
+    telemetry.track("feature_used", { feature: "settings_opened" });
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
@@ -42,6 +44,12 @@ export function Settings({ onClose, onChanged }: Props) {
         >
           <ClaudeIcon /> Claude integration
         </button>
+        <button
+          className={`settings-nav__row ${section === "privacy" ? "settings-nav__row--active" : ""}`}
+          onClick={() => setSection("privacy")}
+        >
+          <PrivacyIcon /> Privacy
+        </button>
 
         <div className="settings-nav__section" style={{ marginTop: 18 }}>about</div>
         <button
@@ -55,6 +63,7 @@ export function Settings({ onClose, onChanged }: Props) {
       <main className="settings-pane">
         {section === "roots" && <WatchRoots onChanged={onChanged} />}
         {section === "claude" && <ClaudeSection />}
+        {section === "privacy" && <PrivacySection />}
         {section === "about" && <AboutSection />}
       </main>
     </div>
@@ -286,6 +295,95 @@ function ClaudeSection() {
   );
 }
 
+// ─── Privacy ──────────────────────────────────────────
+
+function PrivacySection() {
+  const [consent, setConsent] = useState<"granted" | "denied" | "pending">(
+    () => telemetry.getConsent(),
+  );
+
+  function set(next: "granted" | "denied") {
+    telemetry.setConsent(next);
+    setConsent(next);
+  }
+
+  function purge() {
+    if (!confirm("Reset your device ID and stop sending telemetry? Past events stay on the server until they age out — see PRIVACY.md for the deletion-request flow.")) return;
+    telemetry.purgeRemoteData();
+    setConsent("denied");
+  }
+
+  const granted = consent === "granted";
+
+  return (
+    <>
+      <div className="settings-head">
+        <div className="settings-eyebrow">★ privacy</div>
+        <h1 className="settings-title">Anonymous, opt-in.</h1>
+        <p className="settings-lede">
+          Platter can send a small set of anonymous events so I can see what's working.
+          No file paths, no contents, no third-party trackers. Stored in a Cloudflare D1
+          database I own.
+        </p>
+      </div>
+
+      <section className="settings-section">
+        <div className="settings-section__head">
+          <h2 className="settings-section__title">Anonymous usage stats</h2>
+          <span className="settings-section__count">
+            currently: <strong style={{ color: granted ? "var(--sage-2)" : "var(--ink-2)" }}>{granted ? "sharing" : "off"}</strong>
+          </span>
+        </div>
+
+        <div className="root-row">
+          <div className="root-row__path">
+            <div className="root-row__glob">Share anonymous usage stats</div>
+            <div className="root-row__sub">
+              <span>random device UUID</span>
+              <span className="root-row__sub-sep">·</span>
+              <span>event names + small payloads</span>
+              <span className="root-row__sub-sep">·</span>
+              <span>flushed every 30s</span>
+            </div>
+          </div>
+          <button
+            className={`toggle ${granted ? "" : "toggle--off"}`}
+            onClick={() => set(granted ? "denied" : "granted")}
+            title={granted ? "Stop sharing" : "Start sharing"}
+          />
+        </div>
+
+        <div className="help-card">
+          What gets sent: event names like <code>review_started</code>, <code>review_resolved</code>,
+          <code>feature_used</code>, <code>update_checked</code>, plus the structured payload
+          described in <a href="https://github.com/rudraptpsingh/platter/blob/main/docs/PRIVACY.md" target="_blank" rel="noreferrer" style={{ color: "var(--vermilion)" }}>PRIVACY.md</a>.
+          Every batched POST goes to <code>https://platter.pages.dev/api/ingest</code>.
+        </div>
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section__head">
+          <h2 className="settings-section__title">Reset device ID</h2>
+          <span className="settings-section__count">cuts the link to past events</span>
+        </div>
+        <div className="help-card">
+          Clears your local device ID and stops further sends. Events already on the server
+          age out automatically; for an immediate purge, email{" "}
+          <a href="mailto:rudra.ptp.singh@gmail.com" style={{ color: "var(--vermilion)" }}>
+            rudra.ptp.singh@gmail.com
+          </a>{" "}
+          with your device ID.
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <button className="add-root__btn" style={{ background: "var(--brick)" }} onClick={purge}>
+            Reset & stop sharing
+          </button>
+        </div>
+      </section>
+    </>
+  );
+}
+
 // ─── About ────────────────────────────────────────────
 
 function AboutSection() {
@@ -409,6 +507,15 @@ function ClaudeIcon() {
     </svg>
   );
 }
+function PrivacyIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M7 1.5l5 2v4c0 3-2 5-5 5s-5-2-5-5v-4l5-2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+      <path d="M5 7l1.5 1.5L9.5 5.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 function InfoIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "platter",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "identifier": "dev.rudra.platter",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -29,6 +29,18 @@
           "allow": ["$HOME/**", "/**"],
           "deny": []
         }
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://platter.pages.dev/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQxNUUzMjlFODJERTI5MTcKUldRWEtkNkNuakplMFI5VUsxb1JyRjlTVFA5K2hFa3pEZHFheDVsQzJuSWF2TkhYK0NxMXhPZ20K",
+      "windows": {
+        "installMode": "passive"
       }
     }
   },
