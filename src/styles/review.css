@@ -76,13 +76,17 @@
   font-family: var(--font-display);
   font-style: italic;
   font-size: 18px;
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: -0.01em;
   color: var(--ink);
   margin: 0;
+  /* Allow up to 2 lines so we don't truncate Claude's prompt.
+     The header grows to fit; the asset stage shrinks via flex. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  word-break: break-word;
 }
 
 .review-head__right {

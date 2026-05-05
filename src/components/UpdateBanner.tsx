@@ -111,7 +111,10 @@ export function UpdateBanner() {
       <span className="update-banner__icon">↑</span>
       <span className="update-banner__copy">
         <span className="update-banner__title">v{state.version} available</span>
-        <span className="update-banner__sub">
+        <span
+          className="update-banner__sub"
+          title={state.notes ?? "A newer platter is ready to install."}
+        >
           {state.notes && state.notes.length > 0
             ? state.notes.split("\n")[0].slice(0, 80)
             : "A newer platter is ready to install."}

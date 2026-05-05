@@ -16,12 +16,12 @@ export function Card({ file, onOpen, onJumpToFolder, showLocation }: Props) {
   const folderLabel = niceFolderLabel(folder);
 
   return (
-    <article className="card" onClick={onOpen}>
+    <article className="card" onClick={onOpen} title={file.path}>
       <Thumb file={file} />
       <span className="card__kind">{file.kind}</span>
       {isNew && <span className="card__new-dot" />}
       <div className="card__meta">
-        <div className="card__name">{basename(file.path)}</div>
+        <div className="card__name" title={basename(file.path)}>{basename(file.path)}</div>
         <div className="card__sub">
           <span>{relativeTime(file.mtime)}</span>
           <span style={{ opacity: 0.4 }}>·</span>

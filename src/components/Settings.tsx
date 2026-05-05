@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RootInfo } from "../types";
 import { api } from "../lib/api";
 import * as telemetry from "../lib/telemetry";
+import { Popover, PopoverMenu } from "./Popover";
 
 import "../styles/settings.css";
 
@@ -136,43 +137,12 @@ function WatchRoots({ onChanged }: { onChanged: () => void }) {
         </div>
 
         {roots.map((r) => (
-          <div key={r.id} className={`root-row ${r.enabled ? "" : "root-row--off"}`}>
-            <div className="root-row__path">
-              <div className="root-row__glob">{r.glob}</div>
-              <div className="root-row__sub">
-                {r.is_default ? (
-                  <span className="root-badge">default</span>
-                ) : (
-                  <span className="root-badge root-badge--gold">manual</span>
-                )}
-                <span>matches {r.resolved_count} folder{r.resolved_count === 1 ? "" : "s"}</span>
-                <span className="root-row__sub-sep">·</span>
-                <span>{r.label}</span>
-              </div>
-            </div>
-            <div>
-              <div className="root-row__count">{r.enabled ? r.file_count : "—"}</div>
-              <div className="root-row__count-label">{r.enabled ? "files" : "paused"}</div>
-            </div>
-            <button
-              className={`toggle ${r.enabled ? "" : "toggle--off"}`}
-              onClick={() => toggle(r.id, !r.enabled)}
-              title={r.enabled ? "Pause this root" : "Enable this root"}
-            />
-            {!r.is_default && (
-              <button
-                className="root-row__more"
-                onClick={() => {
-                  if (confirm(`Remove root "${r.glob}"?`)) remove(r.id);
-                }}
-                title="Remove this root"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                  <path d="M3 3l8 8M3 11l8-8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-                </svg>
-              </button>
-            )}
-          </div>
+          <RootRow
+            key={r.id}
+            root={r}
+            onToggle={() => toggle(r.id, !r.enabled)}
+            onRemove={() => remove(r.id)}
+          />
         ))}
 
         <div className="add-root">
@@ -292,6 +262,107 @@ function ClaudeSection() {
         </div>
       </section>
     </>
+  );
+}
+
+// ─── A single watch-root row, with a kebab menu ─────────
+
+function RootRow({
+  root,
+  onToggle,
+  onRemove,
+}: {
+  root: RootInfo;
+  onToggle: () => void;
+  onRemove: () => void;
+}) {
+  const kebabRef = useRef<HTMLButtonElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  function copyGlob() {
+    navigator.clipboard.writeText(root.glob).catch(() => {});
+    setMenuOpen(false);
+  }
+
+  return (
+    <div className={`root-row ${root.enabled ? "" : "root-row--off"}`} title={root.glob}>
+      <div className="root-row__path">
+        <div className="root-row__glob">{root.glob}</div>
+        <div className="root-row__sub">
+          {root.is_default ? (
+            <span className="root-badge">default</span>
+          ) : (
+            <span className="root-badge root-badge--gold">manual</span>
+          )}
+          <span>matches {root.resolved_count} folder{root.resolved_count === 1 ? "" : "s"}</span>
+          <span className="root-row__sub-sep">·</span>
+          <span>{root.label}</span>
+        </div>
+      </div>
+      <div>
+        <div className="root-row__count">{root.enabled ? root.file_count : "—"}</div>
+        <div className="root-row__count-label">{root.enabled ? "files" : "paused"}</div>
+      </div>
+      <button
+        className={`toggle ${root.enabled ? "" : "toggle--off"}`}
+        onClick={onToggle}
+        title={root.enabled ? "Pause this root" : "Enable this root"}
+      />
+      <button
+        ref={kebabRef}
+        className={`kebab-btn ${menuOpen ? "kebab-btn--open" : ""}`}
+        onClick={() => setMenuOpen((v) => !v)}
+        title="More actions"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <circle cx="7" cy="3" r="1.2" fill="currentColor" />
+          <circle cx="7" cy="7" r="1.2" fill="currentColor" />
+          <circle cx="7" cy="11" r="1.2" fill="currentColor" />
+        </svg>
+      </button>
+
+      <Popover
+        open={menuOpen}
+        anchorRef={kebabRef}
+        onClose={() => setMenuOpen(false)}
+        anchor="bottom-end"
+      >
+        <PopoverMenu
+          items={[
+            {
+              kind: "item",
+              label: root.enabled ? "Pause this root" : "Enable this root",
+              onClick: () => {
+                onToggle();
+                setMenuOpen(false);
+              },
+            },
+            {
+              kind: "item",
+              label: "Copy glob",
+              onClick: copyGlob,
+              hint: "⌘C",
+            },
+            ...(root.is_default
+              ? []
+              : ([
+                  { kind: "separator" as const },
+                  {
+                    kind: "item" as const,
+                    label: "Remove root…",
+                    danger: true,
+                    onClick: () => {
+                      setMenuOpen(false);
+                      if (confirm(`Remove root "${root.glob}"?`)) onRemove();
+                    },
+                  },
+                ] as const)),
+          ]}
+        />
+      </Popover>
+    </div>
   );
 }
 

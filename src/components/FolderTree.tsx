@@ -62,6 +62,7 @@ function Branch({
           if (hasChildren) setExpanded(!expanded);
           if (selectable) onSelect(node.path);
         }}
+        title={node.path && !node.path.includes("*") ? node.path : node.label}
       >
         <span className={`tree-row__chev ${expanded ? "tree-row__chev--expanded" : ""}`}>
           {hasChildren ? "▶" : ""}

@@ -87,7 +87,12 @@ function Header({
 
       <div className="review-head__prompt">
         <div className="review-head__eyebrow">★ {eyebrow}</div>
-        <h1 className="review-head__h">{prompt ?? "Take a look at these and let me know."}</h1>
+        <h1
+          className="review-head__h"
+          title={prompt ?? undefined}
+        >
+          {prompt ?? "Take a look at these and let me know."}
+        </h1>
       </div>
 
       <div className="review-head__right">
@@ -259,7 +264,7 @@ function ApproveRejectMode({
             })}
           </div>
           <div className="sibling-meta">
-            <div className="sibling-meta__name">{basename(path)}</div>
+            <div className="sibling-meta__name" title={path}>{basename(path)}</div>
             <div>
               {fileMeta ? (
                 <>
@@ -400,7 +405,7 @@ function PickOneMode({
               <AssetPreview path={p} mode="thumb" />
             </div>
             <div className="pick-card__meta">
-              <div className="pick-card__name">{basename(p)}</div>
+              <div className="pick-card__name" title={p}>{basename(p)}</div>
             </div>
           </article>
         ))}
@@ -494,7 +499,7 @@ function RankMode({
               <AssetPreview path={p} mode="thumb" />
             </div>
             <div className="rank-item__body">
-              <div className="rank-item__name">{basename(p)}</div>
+              <div className="rank-item__name" title={p}>{basename(p)}</div>
             </div>
             <div className="rank-item__action">
               <button className="rank-item__btn" onClick={() => moveUp(i)} title="Move up">↑</button>
@@ -516,7 +521,7 @@ function RankMode({
                   <AssetPreview path={p} mode="thumb" />
                 </div>
                 <div className="rank-item__body">
-                  <div className="rank-item__name">{basename(p)}</div>
+                  <div className="rank-item__name" title={p}>{basename(p)}</div>
                 </div>
                 <div className="rank-item__action">
                   <button className="rank-item__btn" onClick={() => moveToRanked(p)} title="Add to ranking">+</button>

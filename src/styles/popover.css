@@ -1,0 +1,94 @@
+/* ─── Portal-rendered popover ────────────────────────── */
+
+.popover {
+  z-index: 1000;
+  background: rgba(255, 253, 248, 0.98);
+  border-radius: 10px;
+  box-shadow:
+    0 16px 40px rgba(27, 23, 20, 0.18),
+    0 4px 12px rgba(27, 23, 20, 0.06),
+    0 0 0 0.5px rgba(27, 23, 20, 0.10);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  min-width: 180px;
+  max-width: 320px;
+  transform-origin: top right;
+  animation: popover-in 0.14s var(--ease-out);
+}
+
+@keyframes popover-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ─── Pre-built menu surface ─────────────────────────── */
+
+.popover-menu {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.popover-menu__sep {
+  height: 1px;
+  background: rgba(27, 23, 20, 0.08);
+  margin: 4px 0;
+}
+
+.popover-menu__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s var(--ease-out);
+}
+.popover-menu__item:hover { background: rgba(27, 23, 20, 0.06); }
+.popover-menu__item:active { background: rgba(27, 23, 20, 0.10); }
+.popover-menu__item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: transparent;
+}
+.popover-menu__item--danger { color: var(--brick); }
+.popover-menu__item--danger:hover { background: var(--brick-soft); }
+
+.popover-menu__hint {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+
+/* ─── Kebab trigger button (re-usable across the app) ── */
+
+.kebab-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s var(--ease-out);
+  flex-shrink: 0;
+}
+.kebab-btn:hover { background: rgba(27, 23, 20, 0.08); color: var(--ink); }
+.kebab-btn--open { background: rgba(27, 23, 20, 0.12); color: var(--ink); }
