@@ -1,0 +1,319 @@
+/* ─── Recap view ────────────────────────────────────────────────── */
+/* A chronological "brag-reel" view that doubles as a print-to-PDF
+   contact sheet. Two outputs from one feature — see @media print
+   block at the bottom. */
+
+.recap {
+  padding: 16px 28px 80px;
+  overflow-y: auto;
+  height: 100%;
+  background: var(--paper);
+}
+
+.recap__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin: 8px 0 28px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.recap__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--vermilion);
+  margin-bottom: 6px;
+}
+
+.recap__title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 38px;
+  line-height: 1;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+.recap__title em { font-style: italic; }
+
+.recap__sub {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.recap__head-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.recap__windowpicker {
+  display: inline-flex;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px;
+}
+
+.recap__windowbtn {
+  border: none;
+  background: transparent;
+  padding: 5px 12px;
+  font-size: 12px;
+  color: var(--ink-2);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s var(--ease-out), color 0.12s var(--ease-out);
+}
+.recap__windowbtn:hover { color: var(--ink); }
+.recap__windowbtn--active {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.recap__printbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.recap__printfilter {
+  font-family: inherit;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+  color: var(--ink-2);
+  padding: 6px 8px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+
+.recap__printbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--vermilion);
+  background: var(--vermilion);
+  color: #FBF6EA;
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 0.12s var(--ease-out);
+}
+.recap__printbtn:hover { background: var(--vermilion-2); border-color: var(--vermilion-2); }
+
+/* ─── Day sections ──────────────────────────────────────────────── */
+
+.recap__days {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.recap-day__head {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.recap-day__title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 22px;
+  margin: 0;
+  color: var(--ink);
+}
+.recap-day__title em { font-style: italic; }
+
+.recap-day__stats {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  display: inline-flex;
+  gap: 6px;
+}
+
+.recap-day__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.recap-day__item {
+  /* Each item wraps a Card so it can carry per-item print captions. */
+  display: contents;
+}
+
+/* Print-only stuff — completely hidden on screen */
+.print-only { display: none; }
+
+/* ─── @media print ──────────────────────────────────────────────── */
+/* The contact sheet. Strips chrome, recolors for paper, lays out the
+   day grid 3-up, page-breaks per day. macOS "Save as PDF" from the
+   print dialog will produce a clean editorial PDF. */
+
+@media print {
+  @page {
+    size: Letter;
+    margin: 0.6in;
+  }
+
+  /* Kill the rest of the app shell when printing. App.tsx wraps content
+     in <main class="main"> next to the <aside class="sidebar">; the
+     toolbar lives in <div class="toolbar"> at the top of main. */
+  .sidebar,
+  .toolbar,
+  .titlebar-drag,
+  .cmp-banner,
+  .toast-host,
+  .update-banner,
+  .no-print {
+    display: none !important;
+  }
+
+  body, html, #root, .app, .main {
+    background: #fff !important;
+    color: #111 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  .main { padding: 0 !important; }
+
+  .recap {
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+    background: #fff !important;
+  }
+
+  .print-only { display: revert; }
+
+  /* ── Cover page ── */
+  .recap__cover {
+    text-align: center;
+    padding: 60px 0 80px;
+    border-bottom: 1px solid #ddd;
+    page-break-after: always;
+  }
+  .recap__cover-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--vermilion);
+    margin-bottom: 18px;
+  }
+  .recap__cover-h {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 64px;
+    margin: 0 0 36px;
+    color: #111;
+  }
+  .recap__cover-stats {
+    display: inline-flex;
+    gap: 56px;
+    margin-bottom: 32px;
+  }
+  .recap__cover-stats > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .recap__cover-stats strong {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 400;
+    font-size: 48px;
+    line-height: 1;
+    color: #111;
+  }
+  .recap__cover-stats span {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #666;
+    margin-top: 6px;
+  }
+  .recap__cover-foot {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #999;
+  }
+
+  /* ── Day sections on print ── */
+  .recap-day {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 28px;
+  }
+  .recap-day + .recap-day { page-break-before: auto; }
+  .recap-day__head {
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 14px;
+    padding-bottom: 6px;
+  }
+  .recap-day__title { color: #111; font-size: 20px; }
+  .recap-day__stats { color: #666; }
+
+  .recap-day__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  /* When the user wants approved-only, hide everything else */
+  body[data-print-filter="approved"] .recap-day__item:not([data-decision="approved"]) {
+    display: none !important;
+  }
+  /* If a day has zero approved items in approved-only mode, hide the day too */
+  body[data-print-filter="approved"] .recap-day:not(:has([data-decision="approved"])) {
+    display: none !important;
+  }
+
+  /* Card recoloring — the on-screen card uses --paper which prints as
+     a faint gray; force it to white-with-thin-border for ink economy. */
+  .card {
+    background: #fff !important;
+    border: 1px solid #ddd !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+  .card__name { color: #111 !important; }
+  .card__sub, .card__where { color: #555 !important; }
+
+  /* Print captions (rendered alongside Card; visible on print only) */
+  .recap-day__print-caption {
+    font-family: var(--font-body);
+    font-size: 9.5px;
+    line-height: 1.35;
+    margin-top: 4px;
+    color: #333;
+  }
+  .recap-day__print-caption__name {
+    font-weight: 500;
+    color: #111;
+  }
+  .recap-day__print-caption__meta {
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    letter-spacing: 0.04em;
+    color: #777;
+  }
+}

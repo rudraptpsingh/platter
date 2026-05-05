@@ -19,6 +19,7 @@ import { PrivacyConsent } from "./components/PrivacyConsent";
 import { ToastProvider, useToast } from "./components/Toast";
 import { Popover, PopoverMenu } from "./components/Popover";
 import { CompareModal } from "./components/CompareModal";
+import { RecapView } from "./components/RecapView";
 import { detectReviewSet } from "./lib/review-set";
 import * as telemetry from "./lib/telemetry";
 import { copyDecisionsMarkdown, type Window as DecisionWindow } from "./lib/decisions";
@@ -29,7 +30,7 @@ import "./styles/app.css";
 import "./styles/cards.css";
 import "./styles/compare-modal.css";
 
-type View = "home" | "folder" | "search" | "decisions";
+type View = "home" | "folder" | "search" | "decisions" | "recap";
 type DecisionsFilter = "all" | "approved" | "rejected";
 
 export default function App() {
@@ -412,6 +413,12 @@ function AppInner() {
     });
   }, []);
 
+  const handleRecapView = useCallback(() => {
+    setView("recap");
+    setActivePath(null);
+    setSearch("");
+  }, []);
+
   const handleDecisionsView = useCallback(
     (filter: DecisionsFilter) => {
       setView("decisions");
@@ -492,12 +499,14 @@ function AppInner() {
         onHome={handleHome}
         onSelect={handleSelectFolder}
         onDecisionsView={handleDecisionsView}
+        onRecapView={handleRecapView}
         decisionsFilter={decisionsFilter}
         decisionCounts={decisionCounts}
         scanning={scanning}
       />
 
       <main className="main">
+        {view !== "recap" && (
         <Toolbar
           view={view}
           activePath={activePath}
@@ -513,8 +522,14 @@ function AppInner() {
           onOpenSettings={() => setShowSettings(true)}
           decisionsFilter={decisionsFilter}
         />
+        )}
 
-        {view === "home" && recent.length === 0 && scanning ? (
+        {view === "recap" ? (
+          <RecapView
+            onOpenFile={(f) => setPreviewFile(f)}
+            onJumpToFolder={(folder) => handleSelectFolder(folder)}
+          />
+        ) : view === "home" && recent.length === 0 && scanning ? (
           <div className="center-state">
             <h2 className="center-state__h">Scanning…</h2>
             <p className="center-state__sub">
@@ -665,6 +680,7 @@ function Sidebar({
   onHome,
   onSelect,
   onDecisionsView,
+  onRecapView,
   decisionsFilter,
   decisionCounts,
   scanning,
@@ -675,6 +691,7 @@ function Sidebar({
   onHome: () => void;
   onSelect: (p: string) => void;
   onDecisionsView: (filter: DecisionsFilter) => void;
+  onRecapView: () => void;
   decisionsFilter: DecisionsFilter;
   decisionCounts: { approved: number; rejected: number };
   scanning: boolean;
@@ -708,6 +725,22 @@ function Sidebar({
         </div>
 
         <FolderTree nodes={tree} activePath={activePath} onSelect={onSelect} />
+
+        <div className="tree-section" style={{ marginTop: 16 }}>smart</div>
+        <div
+          className={`tree-row ${view === "recap" ? "tree-row--active" : ""}`}
+          onClick={onRecapView}
+        >
+          <svg className="tree-row__icon" width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <path
+              d="M2 11h2V6H2v5zm4 0h2V3H6v8zm4 0h2V8h-2v3z"
+              stroke="currentColor"
+              strokeWidth="1.1"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="tree-row__label">Recap</span>
+        </div>
 
         <div className="tree-section" style={{ marginTop: 16 }}>decisions</div>
         <div
