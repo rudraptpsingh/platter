@@ -10,6 +10,14 @@ export const api = {
     invoke<FileRow[]>("search_all", { query, limit }),
   decide: (path: string, decision: string, note?: string) =>
     invoke<void>("decide", { path, decision, note: note ?? null }),
+  clearDecision: (path: string) => invoke<void>("clear_decision", { path }),
+  listDecided: (decision?: "approved" | "rejected", sinceSeconds?: number, limit = 500) =>
+    invoke<FileRow[]>("list_decided", {
+      decision: decision ?? null,
+      sinceSeconds: sinceSeconds ?? null,
+      limit,
+    }),
+  countDecisions: () => invoke<[number, number]>("count_decisions"),
   rescan: () => invoke<void>("rescan"),
   readTextFile: (path: string) => invoke<string>("read_text_file", { path }),
   listPendingReviews: () => invoke<ReviewRequest[]>("list_pending_reviews"),

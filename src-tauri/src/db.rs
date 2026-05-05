@@ -356,6 +356,89 @@ impl Db {
         )?;
         Ok(())
     }
+
+    pub fn clear_decision(&self, path: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "UPDATE files SET decision = NULL, decision_note = NULL, decided_at = NULL WHERE path = ?",
+            params![path],
+        )?;
+        Ok(())
+    }
+
+    /// Files with a decision, sorted by most-recently-decided.
+    /// `decision_filter`: None = both, Some("approved")/Some("rejected") = filter
+    /// `since_unix`: None = all time, Some(ts) = only decisions made at or after ts
+    pub fn list_decided(
+        &self,
+        decision_filter: Option<&str>,
+        since_unix: Option<i64>,
+        limit: i64,
+    ) -> Result<Vec<FileRow>> {
+        let conn = self.conn.lock().unwrap();
+        let mut sql = String::from(
+            r#"
+            SELECT id, path, root_id, kind, size, mtime, created_at, last_seen,
+                   decision, decision_note, decided_at
+            FROM files
+            WHERE decision IS NOT NULL
+            "#,
+        );
+        let mut p: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+        if let Some(d) = decision_filter {
+            sql.push_str(" AND decision = ?");
+            p.push(Box::new(d.to_string()));
+        }
+        if let Some(s) = since_unix {
+            sql.push_str(" AND decided_at >= ?");
+            p.push(Box::new(s));
+        }
+        sql.push_str(" ORDER BY decided_at DESC LIMIT ?");
+        p.push(Box::new(limit));
+
+        let params_borrow: Vec<&dyn rusqlite::ToSql> =
+            p.iter().map(|b| b.as_ref()).collect();
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt
+            .query_map(params_borrow.as_slice(), |r| {
+                Ok(FileRow {
+                    id: r.get(0)?,
+                    path: r.get(1)?,
+                    root_id: r.get(2)?,
+                    kind: r.get(3)?,
+                    size: r.get(4)?,
+                    mtime: r.get(5)?,
+                    created_at: r.get(6)?,
+                    last_seen: r.get(7)?,
+                    decision: r.get(8)?,
+                    decision_note: r.get(9)?,
+                    decided_at: r.get(10)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
+    /// Returns (approved_count, rejected_count) — used for sidebar badges.
+    pub fn count_decisions(&self) -> Result<(i64, i64)> {
+        let conn = self.conn.lock().unwrap();
+        let approved: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM files WHERE decision = 'approved'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        let rejected: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM files WHERE decision = 'rejected'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        Ok((approved, rejected))
+    }
 }
 
 pub fn db_path() -> PathBuf {

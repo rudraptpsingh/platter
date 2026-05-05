@@ -7,7 +7,7 @@ type Props = {
   file: FileRow;
   siblings: FileRow[];
   onClose: () => void;
-  onDecided: () => void;
+  onDecided: (path: string, decision: "approved" | "rejected") => void;
   onNavigate: (file: FileRow) => void;
 };
 
@@ -50,10 +50,10 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
       if (e.key.toLowerCase() === "a") {
-        api.decide(file.path, "approved").then(onDecided);
+        api.decide(file.path, "approved").then(() => onDecided(file.path, "approved"));
       }
       if (e.key.toLowerCase() === "r") {
-        api.decide(file.path, "rejected").then(onDecided);
+        api.decide(file.path, "rejected").then(() => onDecided(file.path, "rejected"));
       }
     }
     window.addEventListener("keydown", key);
@@ -61,7 +61,7 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
   }, [file.path, prev, next, onClose, onDecided, onNavigate]);
 
   function decide(d: "approved" | "rejected") {
-    api.decide(file.path, d).then(onDecided);
+    api.decide(file.path, d).then(() => onDecided(file.path, d));
   }
 
   function reveal() {

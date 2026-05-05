@@ -156,6 +156,31 @@ fn decide(
 }
 
 #[tauri::command]
+fn clear_decision(path: String, state: State<AppState>) -> Result<(), String> {
+    state.db.clear_decision(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn list_decided(
+    decision: Option<String>,
+    since_seconds: Option<i64>,
+    limit: Option<i64>,
+    state: State<AppState>,
+) -> Result<Vec<FileRow>, String> {
+    let since_unix = since_seconds
+        .map(|secs| chrono::Utc::now().timestamp() - secs);
+    state
+        .db
+        .list_decided(decision.as_deref(), since_unix, limit.unwrap_or(500))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn count_decisions(state: State<AppState>) -> Result<(i64, i64), String> {
+    state.db.count_decisions().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn rescan(state: State<AppState>) -> Result<(), String> {
     let db = state.db.clone();
     std::thread::spawn(move || {
@@ -291,6 +316,9 @@ pub fn run() {
             list_recent,
             search_all,
             decide,
+            clear_decision,
+            list_decided,
+            count_decisions,
             rescan,
             read_text_file,
             read_file_bytes,

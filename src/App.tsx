@@ -16,22 +16,37 @@ import { ReviewSetView } from "./components/ReviewSetView";
 import { Settings } from "./components/Settings";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { PrivacyConsent } from "./components/PrivacyConsent";
+import { ToastProvider, useToast } from "./components/Toast";
+import { Popover, PopoverMenu } from "./components/Popover";
 import { detectReviewSet } from "./lib/review-set";
 import * as telemetry from "./lib/telemetry";
+import { copyDecisionsMarkdown, type Window as DecisionWindow } from "./lib/decisions";
 
 import "./styles/tokens.css";
 import "./styles/app.css";
 import "./styles/cards.css";
 
-type View = "home" | "folder" | "search";
+type View = "home" | "folder" | "search" | "decisions";
+type DecisionsFilter = "all" | "approved" | "rejected";
 
 export default function App() {
+  return (
+    <ToastProvider>
+      <AppInner />
+    </ToastProvider>
+  );
+}
+
+function AppInner() {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [view, setView] = useState<View>("home");
   const [files, setFiles] = useState<FileRow[]>([]);
   const [recent, setRecent] = useState<FileRow[]>([]);
   const [searchHits, setSearchHits] = useState<FileRow[]>([]);
+  const [decisionsList, setDecisionsList] = useState<FileRow[]>([]);
+  const [decisionsFilter, setDecisionsFilter] = useState<DecisionsFilter>("all");
+  const [decisionCounts, setDecisionCounts] = useState<{ approved: number; rejected: number }>({ approved: 0, rejected: 0 });
   const [search, setSearch] = useState("");
   const [filterKind, setFilterKind] = useState<FilterKind>("all");
   const [filterDecision, setFilterDecision] = useState<FilterDecision>("all");
@@ -52,6 +67,21 @@ export default function App() {
     setRecent(r);
   }, []);
 
+  const refreshDecisionCounts = useCallback(async () => {
+    try {
+      const [approved, rejected] = await api.countDecisions();
+      setDecisionCounts({ approved, rejected });
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const loadDecisions = useCallback(async (filter: DecisionsFilter) => {
+    const decision = filter === "all" ? undefined : filter;
+    const rows = await api.listDecided(decision, undefined, 500);
+    setDecisionsList(rows);
+  }, []);
+
   const refreshFiles = useCallback(async (dir: string | null) => {
     if (!dir) {
       setFiles([]);
@@ -65,6 +95,7 @@ export default function App() {
   useEffect(() => {
     refreshTree().then(() => setLastScan(Date.now() / 1000));
     refreshRecent();
+    refreshDecisionCounts();
     api.listPendingReviews().then(setPendingReviews).catch(() => {});
 
     // First-run consent prompt — only inside the actual Tauri app (not the browser dev preview).
@@ -192,6 +223,7 @@ export default function App() {
     const unlistenChanged = listen("platter:files-changed", () => {
       refreshTree();
       refreshRecent();
+      refreshDecisionCounts();
       refreshFiles(activePath);
       setLastScan(Date.now() / 1000);
     });
@@ -199,6 +231,7 @@ export default function App() {
       setScanning(false);
       refreshTree();
       refreshRecent();
+      refreshDecisionCounts();
       refreshFiles(activePath);
       setLastScan(Date.now() / 1000);
     });
@@ -222,7 +255,10 @@ export default function App() {
 
   // Determine active source list
   const sourceFiles: FileRow[] =
-    view === "home" ? recent : view === "search" ? searchHits : files;
+    view === "home" ? recent
+      : view === "search" ? searchHits
+      : view === "decisions" ? decisionsList
+      : files;
 
   const filteredFilesRef = useRef<FileRow[]>([]);
 
@@ -281,6 +317,17 @@ export default function App() {
     setSearch("");
   }, []);
 
+  const handleDecisionsView = useCallback(
+    (filter: DecisionsFilter) => {
+      setView("decisions");
+      setActivePath(null);
+      setSearch("");
+      setDecisionsFilter(filter);
+      loadDecisions(filter);
+    },
+    [loadDecisions],
+  );
+
   const handleSearchChange = useCallback((s: string) => {
     setSearch(s);
     if (view !== "folder") {
@@ -288,24 +335,60 @@ export default function App() {
     }
   }, [view]);
 
-  const handleDecided = useCallback(async () => {
+  const toast = useToast();
+
+  const refreshAfterDecision = useCallback(async () => {
     if (view === "folder" && activePath) {
       const fs = await api.listFiles(activePath);
       setFiles(fs);
     }
     refreshRecent();
+    refreshDecisionCounts();
     if (view === "search" && search.trim()) {
       const r = await api.searchAll(search.trim(), 200);
       setSearchHits(r);
     }
+    if (view === "decisions") {
+      loadDecisions(decisionsFilter);
+    }
     setPreviewFile((prev) => {
       if (!prev) return prev;
-      // Find updated row across whichever list
-      const all = view === "folder" ? files : view === "search" ? searchHits : recent;
+      const all = view === "folder" ? files
+        : view === "search" ? searchHits
+        : view === "decisions" ? decisionsList
+        : recent;
       const fresh = all.find((x) => x.path === prev.path);
       return fresh ?? prev;
     });
-  }, [activePath, view, search, files, searchHits, recent, refreshRecent]);
+  }, [activePath, view, search, decisionsFilter, files, searchHits, recent, decisionsList, refreshRecent, refreshDecisionCounts, loadDecisions]);
+
+  // Called by PreviewModal when the user makes (or changes) a decision.
+  // We get the path and the new decision; the previous one is on the file
+  // record we already have. Fires a toast with an undo handler that puts
+  // the previous decision back (or clears, if there was none).
+  const handleDecided = useCallback(
+    async (path: string, newDecision: "approved" | "rejected") => {
+      const prev = previewFile?.path === path ? previewFile : files.find((f) => f.path === path) ?? recent.find((f) => f.path === path);
+      const prevDecision = prev?.decision ?? null;
+      const filename = path.slice(path.lastIndexOf("/") + 1);
+
+      await refreshAfterDecision();
+
+      toast.show({
+        message: newDecision === "approved" ? `Approved ${filename}` : `Rejected ${filename}`,
+        tone: newDecision === "approved" ? "ok" : "warn",
+        undo: async () => {
+          if (prevDecision === null) {
+            await api.clearDecision(path);
+          } else {
+            await api.decide(path, prevDecision);
+          }
+          await refreshAfterDecision();
+        },
+      });
+    },
+    [previewFile, files, recent, refreshAfterDecision, toast],
+  );
 
   return (
     <div className="app">
@@ -315,6 +398,9 @@ export default function App() {
         view={view}
         onHome={handleHome}
         onSelect={handleSelectFolder}
+        onDecisionsView={handleDecisionsView}
+        decisionsFilter={decisionsFilter}
+        decisionCounts={decisionCounts}
         scanning={scanning}
       />
 
@@ -332,6 +418,7 @@ export default function App() {
           counts={counts}
           onRescan={() => api.rescan()}
           onOpenSettings={() => setShowSettings(true)}
+          decisionsFilter={decisionsFilter}
         />
 
         {view === "home" && recent.length === 0 && scanning ? (
@@ -441,6 +528,9 @@ function Sidebar({
   view,
   onHome,
   onSelect,
+  onDecisionsView,
+  decisionsFilter,
+  decisionCounts,
   scanning,
 }: {
   tree: TreeNode[];
@@ -448,6 +538,9 @@ function Sidebar({
   view: View;
   onHome: () => void;
   onSelect: (p: string) => void;
+  onDecisionsView: (filter: DecisionsFilter) => void;
+  decisionsFilter: DecisionsFilter;
+  decisionCounts: { approved: number; rejected: number };
   scanning: boolean;
 }) {
   const totalFiles = tree.reduce((acc, t) => acc + t.count, 0);
@@ -479,6 +572,38 @@ function Sidebar({
         </div>
 
         <FolderTree nodes={tree} activePath={activePath} onSelect={onSelect} />
+
+        <div className="tree-section" style={{ marginTop: 16 }}>decisions</div>
+        <div
+          className={`tree-row ${view === "decisions" && decisionsFilter === "approved" ? "tree-row--active" : ""}`}
+          onClick={() => onDecisionsView("approved")}
+        >
+          <svg className="tree-row__icon" width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <path d="M3 7l3 3 5-6" stroke="var(--sage)" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <span className="tree-row__label">Approved</span>
+          <span className="tree-row__count">{decisionCounts.approved}</span>
+        </div>
+        <div
+          className={`tree-row ${view === "decisions" && decisionsFilter === "rejected" ? "tree-row--active" : ""}`}
+          onClick={() => onDecisionsView("rejected")}
+        >
+          <svg className="tree-row__icon" width="11" height="11" viewBox="0 0 14 14" fill="none">
+            <path d="M3 3l8 8M3 11l8-8" stroke="var(--brick)" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+          <span className="tree-row__label">Rejected</span>
+          <span className="tree-row__count">{decisionCounts.rejected}</span>
+        </div>
+        <div
+          className={`tree-row ${view === "decisions" && decisionsFilter === "all" ? "tree-row--active" : ""}`}
+          onClick={() => onDecisionsView("all")}
+        >
+          <svg className="tree-row__icon" width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.2" />
+          </svg>
+          <span className="tree-row__label">All decisions</span>
+          <span className="tree-row__count">{decisionCounts.approved + decisionCounts.rejected}</span>
+        </div>
       </div>
       <div className="sidebar__footer">
         <span className={scanning ? "dot" : "dot dot--sage"} />
@@ -504,6 +629,7 @@ function Toolbar({
   counts,
   onRescan,
   onOpenSettings,
+  decisionsFilter,
 }: {
   view: View;
   activePath: string | null;
@@ -520,6 +646,7 @@ function Toolbar({
   };
   onRescan: () => void;
   onOpenSettings: () => void;
+  decisionsFilter: DecisionsFilter;
 }) {
   const breadcrumb = activePath ? activePath.replace(/\/Users\/[^/]+/, "~") : null;
   const parts = breadcrumb?.split("/").filter(Boolean) ?? [];
@@ -540,6 +667,19 @@ function Toolbar({
       </span>
     );
     leadingSub = `${stats.total} match${stats.total === 1 ? "" : "es"}`;
+  } else if (view === "decisions") {
+    const label =
+      decisionsFilter === "approved"
+        ? "Approved"
+        : decisionsFilter === "rejected"
+        ? "Rejected"
+        : "All decisions";
+    leadingTitle = (
+      <span className="crumb__current" style={{ fontStyle: "italic" }}>
+        {label}
+      </span>
+    );
+    leadingSub = `${stats.total} decision${stats.total === 1 ? "" : "s"}`;
   } else if (parts.length > 0) {
     leadingTitle = (
       <>
@@ -584,6 +724,7 @@ function Toolbar({
             onChange={(e) => onSearch(e.target.value)}
           />
         </div>
+        <ExportDecisionsButton />
         <button className="tool-icon" onClick={onRescan} title="Rescan">
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
             <path
@@ -664,5 +805,55 @@ function Toolbar({
         </div>
       </div>
     </div>
+  );
+}
+
+function ExportDecisionsButton() {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const toast = useToast();
+
+  async function exportWindow(w: DecisionWindow) {
+    setOpen(false);
+    try {
+      const { count, window } = await copyDecisionsMarkdown(w);
+      toast.show({
+        message:
+          count === 0
+            ? `No decisions ${window === "all" ? "yet" : `in ${window === "today" ? "the last 24h" : window === "week" ? "the last week" : "the last month"}`}.`
+            : `Copied ${count} decision${count === 1 ? "" : "s"} (${window === "all" ? "all-time" : window}) as markdown.`,
+        tone: count === 0 ? "info" : "ok",
+      });
+    } catch (e) {
+      toast.show({ message: `Export failed: ${e}`, tone: "warn" });
+    }
+  }
+
+  return (
+    <>
+      <button
+        ref={ref}
+        className={`tool-icon ${open ? "tool-icon--active" : ""}`}
+        onClick={() => setOpen((v) => !v)}
+        title="Export decisions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+          <path d="M7 2v6m0 0L4 5m3 3l3-3M2 9v3h10V9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      <Popover open={open} anchorRef={ref} onClose={() => setOpen(false)} anchor="bottom-end">
+        <PopoverMenu
+          items={[
+            { kind: "item", label: "Copy today's decisions", onClick: () => exportWindow("today") },
+            { kind: "item", label: "Copy this week's decisions", onClick: () => exportWindow("week") },
+            { kind: "item", label: "Copy this month's decisions", onClick: () => exportWindow("month") },
+            { kind: "separator" },
+            { kind: "item", label: "Copy all decisions", onClick: () => exportWindow("all") },
+          ]}
+        />
+      </Popover>
+    </>
   );
 }

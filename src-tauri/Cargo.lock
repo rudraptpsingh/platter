@@ -2846,7 +2846,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "platter"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2864,6 +2864,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-notification",
  "tauri-plugin-opener",
+ "tauri-plugin-process",
  "tauri-plugin-updater",
  "tokio",
  "walkdir",
@@ -4129,6 +4130,16 @@ dependencies = [
  "url",
  "windows",
  "zbus",
+]
+
+[[package]]
+name = "tauri-plugin-process"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d55511a7bf6cd70c8767b02c97bf8134fa434daf3926cfc1be0a0f94132d165a"
+dependencies = [
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]
