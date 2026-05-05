@@ -12,5 +12,12 @@ binding = "DB"
 database_name = "platter-telemetry"
 database_id = "8d0d0dba-7a40-4db7-b283-179bc9edc24b"
 
+# R2 bucket for the public-review-link asset payloads (HTML/PNG/PDF
+# bytes uploaded by the platter app). Created with:
+#   npx wrangler r2 bucket create platter-shares
+[[r2_buckets]]
+binding     = "SHARES"
+bucket_name = "platter-shares"
+
 # Set the dashboard secret with:
 #   npx wrangler pages secret put DASH_SECRET --project-name=platter

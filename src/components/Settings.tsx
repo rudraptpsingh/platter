@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { RootInfo } from "../types";
 import { api } from "../lib/api";
 import * as telemetry from "../lib/telemetry";
+import { listShares, type ShareLink } from "../lib/share";
 import { Popover, PopoverMenu } from "./Popover";
 
 import "../styles/settings.css";
@@ -12,7 +13,9 @@ type Props = {
 };
 
 export function Settings({ onClose, onChanged }: Props) {
-  const [section, setSection] = useState<"roots" | "claude" | "privacy" | "about">("roots");
+  const [section, setSection] = useState<
+    "roots" | "claude" | "shared" | "privacy" | "about"
+  >("roots");
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -46,6 +49,12 @@ export function Settings({ onClose, onChanged }: Props) {
           <ClaudeIcon /> Claude integration
         </button>
         <button
+          className={`settings-nav__row ${section === "shared" ? "settings-nav__row--active" : ""}`}
+          onClick={() => setSection("shared")}
+        >
+          <ShareIcon /> Shared links
+        </button>
+        <button
           className={`settings-nav__row ${section === "privacy" ? "settings-nav__row--active" : ""}`}
           onClick={() => setSection("privacy")}
         >
@@ -64,6 +73,7 @@ export function Settings({ onClose, onChanged }: Props) {
       <main className="settings-pane">
         {section === "roots" && <WatchRoots onChanged={onChanged} />}
         {section === "claude" && <ClaudeSection />}
+        {section === "shared" && <SharedLinksSection />}
         {section === "privacy" && <PrivacySection />}
         {section === "about" && <AboutSection />}
       </main>
@@ -366,6 +376,210 @@ function RootRow({
   );
 }
 
+// ─── Shared links ─────────────────────────────────────
+
+function SharedLinksSection() {
+  const [links, setLinks] = useState<ShareLink[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function refresh() {
+    try {
+      const r = await listShares();
+      setLinks(r);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  useEffect(() => {
+    refresh();
+    // Poll every 30s while the pane is open so new decisions surface live
+    const id = window.setInterval(refresh, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const totalDecisions = (links ?? []).reduce(
+    (acc, l) => acc + l.decisions.length,
+    0,
+  );
+  const totalLinks = links?.length ?? 0;
+
+  return (
+    <>
+      <div className="settings-head">
+        <div className="settings-eyebrow">★ public review links</div>
+        <h1 className="settings-title">What people said.</h1>
+        <p className="settings-lede">
+          Every link you've created from a preview, with the decisions reviewers left.
+          Polls every 30 seconds — new feedback surfaces here without a refresh.
+        </p>
+      </div>
+
+      <section className="settings-section">
+        <div className="settings-section__head">
+          <h2 className="settings-section__title">Your links</h2>
+          <span className="settings-section__count">
+            {totalLinks} link{totalLinks === 1 ? "" : "s"} ·{" "}
+            {totalDecisions} decision{totalDecisions === 1 ? "" : "s"}
+          </span>
+          <button
+            className="add-root__btn"
+            style={{ marginLeft: "auto", padding: "5px 12px", fontSize: 11.5 }}
+            onClick={refresh}
+            type="button"
+          >
+            Refresh
+          </button>
+        </div>
+
+        {error && (
+          <div className="help-card" style={{ borderLeft: "2px solid var(--brick)", color: "var(--brick)" }}>
+            {error}
+          </div>
+        )}
+
+        {links === null && !error && (
+          <div className="help-card">Loading…</div>
+        )}
+
+        {links && links.length === 0 && (
+          <div className="help-card">
+            No links yet. Open any HTML, image, or PDF in the preview, click <strong>Share</strong>,
+            and a public review link will appear here once created.
+          </div>
+        )}
+
+        {links && links.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {links.map((l) => (
+              <SharedLinkRow key={l.id} link={l} />
+            ))}
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function SharedLinkRow({ link }: { link: ShareLink }) {
+  const url = `https://platter.pages.dev/r/${link.id}`;
+  const expiry = link.expires_at
+    ? formatRelativeFuture(link.expires_at)
+    : "never";
+
+  function copy() {
+    navigator.clipboard.writeText(url);
+  }
+
+  return (
+    <div className="root-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div className="root-row__path" style={{ minWidth: 0 }}>
+          <div className="root-row__glob" style={{ wordBreak: "break-all" }}>
+            {link.filename}
+          </div>
+          <div className="root-row__sub" title={link.prompt ?? ""}>
+            <span className="root-badge">{link.kind}</span>
+            <span style={{ color: "var(--ink-3)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {link.prompt ?? "(no prompt)"}
+            </span>
+          </div>
+          <div className="root-row__sub" style={{ marginTop: 4, fontSize: 9.5 }}>
+            <span>{link.view_count} view{link.view_count === 1 ? "" : "s"}</span>
+            <span className="root-row__sub-sep">·</span>
+            <span>expires {expiry}</span>
+            <span className="root-row__sub-sep">·</span>
+            <span style={{ fontFamily: "var(--font-mono)", color: "var(--vermilion)" }}>{url}</span>
+          </div>
+        </div>
+        <div>
+          <div className="root-row__count">{link.decisions.length}</div>
+          <div className="root-row__count-label">decided</div>
+        </div>
+        <button
+          className="kebab-btn"
+          onClick={copy}
+          title="Copy link"
+        >
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.2" />
+            <path d="M5 3V2a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-1" stroke="currentColor" strokeWidth="1.2" />
+          </svg>
+        </button>
+      </div>
+
+      {link.decisions.length > 0 && (
+        <div style={{ borderTop: "0.5px solid var(--line-soft)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+          {link.decisions.map((d) => (
+            <div
+              key={d.id}
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                fontSize: 12.5,
+                color: "var(--ink-2)",
+              }}
+            >
+              <span
+                style={{
+                  width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, fontWeight: 600, color: "var(--paper)",
+                  background:
+                    d.decision === "approved" ? "var(--sage)" :
+                    d.decision === "rejected" ? "var(--brick)" :
+                    "var(--gold)",
+                }}
+                title={d.decision}
+              >
+                {d.decision === "approved" ? "✓" : d.decision === "rejected" ? "✕" : "↻"}
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div>
+                  <strong style={{ color: "var(--ink)" }}>
+                    {d.reviewer_name ?? "anonymous reviewer"}
+                  </strong>{" "}
+                  <span style={{ color: "var(--ink-3)" }}>{d.decision}</span>
+                  <span style={{ color: "var(--ink-4)", fontFamily: "var(--font-mono)", fontSize: 10.5, marginLeft: 8 }}>
+                    {formatRelativeAgo(d.decided_at)}
+                  </span>
+                </div>
+                {d.note && (
+                  <div style={{ marginTop: 3, fontStyle: "italic", color: "var(--ink-2)" }}>
+                    "{d.note}"
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatRelativeAgo(unix: number): string {
+  const now = Math.floor(Date.now() / 1000);
+  const diff = now - unix;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)} d ago`;
+  return new Date(unix * 1000).toLocaleDateString();
+}
+
+function formatRelativeFuture(unix: number): string {
+  const now = Math.floor(Date.now() / 1000);
+  const diff = unix - now;
+  if (diff <= 0) return "expired";
+  if (diff < 3600) return `in ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `in ${Math.floor(diff / 3600)} hr`;
+  if (diff < 86400 * 7) return `in ${Math.floor(diff / 86400)} d`;
+  return new Date(unix * 1000).toLocaleDateString();
+}
+
 // ─── Privacy ──────────────────────────────────────────
 
 function PrivacySection() {
@@ -578,6 +792,17 @@ function ClaudeIcon() {
     </svg>
   );
 }
+function ShareIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <circle cx="3" cy="7" r="1.6" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="11" cy="3" r="1.6" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="11" cy="11" r="1.6" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M4.5 6.5L9.5 4M4.5 7.5L9.5 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function PrivacyIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">

@@ -3,6 +3,8 @@ import type { FileRow } from "../types";
 import { api, basename, dirname, fileUrl, formatSize, relativeTime } from "../lib/api";
 import { getBlobUrl } from "../lib/blobs";
 import { copySourceToClipboard, copySourceAsMarkdown, isTextCopyable } from "../lib/copy-source";
+import { shareKindFor } from "../lib/share";
+import { ShareDialog } from "./ShareDialog";
 import { useToast } from "./Toast";
 
 type Props = {
@@ -15,8 +17,10 @@ type Props = {
 
 export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }: Props) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [showShare, setShowShare] = useState(false);
   const toast = useToast();
   const copyable = isTextCopyable(file.path);
+  const shareable = shareKindFor(file.path) !== null;
 
   async function copyCode(asMarkdown: boolean) {
     try {
@@ -270,6 +274,21 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
               </svg>
               Approve
             </button>
+            {shareable && (
+              <button
+                className="btn"
+                onClick={() => setShowShare(true)}
+                title="Share a public review link"
+              >
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                  <circle cx="3" cy="7" r="1.6" stroke="currentColor" strokeWidth="1.2" />
+                  <circle cx="11" cy="3" r="1.6" stroke="currentColor" strokeWidth="1.2" />
+                  <circle cx="11" cy="11" r="1.6" stroke="currentColor" strokeWidth="1.2" />
+                  <path d="M4.5 6.5L9.5 4M4.5 7.5L9.5 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+                Share
+              </button>
+            )}
             {copyable && (
               <button
                 className="btn"
@@ -304,6 +323,8 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
           </div>
         </aside>
       </div>
+
+      {showShare && <ShareDialog file={file} onClose={() => setShowShare(false)} />}
     </div>
   );
 }

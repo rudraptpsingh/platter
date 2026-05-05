@@ -22,6 +22,7 @@ import { CompareModal } from "./components/CompareModal";
 import { detectReviewSet } from "./lib/review-set";
 import * as telemetry from "./lib/telemetry";
 import { copyDecisionsMarkdown, type Window as DecisionWindow } from "./lib/decisions";
+import { applyRemoteDecisions } from "./lib/share";
 
 import "./styles/tokens.css";
 import "./styles/app.css";
@@ -94,6 +95,49 @@ function AppInner() {
     const f = await api.listFiles(dir);
     setFiles(f);
   }, []);
+
+  const toast = useToast();
+
+  // Background poll for share-link decisions made by remote reviewers.
+  // Approve/reject sync onto the local file (so the gallery card shows
+  // the sage check / brick × just like a local decision); iteration is
+  // surfaced via toast only since it's not a verdict.
+  useEffect(() => {
+    let cancelled = false;
+    async function tick() {
+      if (cancelled) return;
+      const applied = await applyRemoteDecisions().catch(() => []);
+      if (cancelled) return;
+      if (applied.length > 0) {
+        const filename = (p: string) => p.split("/").pop() ?? p;
+        for (const a of applied) {
+          const who = a.reviewer_name ?? "anonymous";
+          const verb =
+            a.decision === "approved" ? "approved" :
+            a.decision === "rejected" ? "rejected" :
+            "asked to iterate on";
+          toast.show({
+            message: `${who} ${verb} ${filename(a.path)}`,
+            tone: a.decision === "approved" ? "ok" :
+                  a.decision === "rejected" ? "warn" :
+                  "info",
+            ttl: 8000,
+          });
+        }
+        // Refresh the views so the new decisions show up in counts + grid
+        refreshTree();
+        refreshRecent();
+        refreshDecisionCounts();
+        refreshFiles(activePath);
+      }
+    }
+    tick(); // immediate on mount
+    const id = window.setInterval(tick, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [activePath, refreshTree, refreshRecent, refreshDecisionCounts, refreshFiles, toast]);
 
   // Initial load
   useEffect(() => {
@@ -385,8 +429,6 @@ function AppInner() {
       setView(s.trim() === "" ? "home" : "search");
     }
   }, [view]);
-
-  const toast = useToast();
 
   const refreshAfterDecision = useCallback(async () => {
     if (view === "folder" && activePath) {
