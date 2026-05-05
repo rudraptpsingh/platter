@@ -4,7 +4,7 @@
    block at the bottom. */
 
 .recap {
-  padding: 16px 28px 80px;
+  padding: 20px 28px 80px;
   overflow-y: auto;
   height: 100%;
   background: var(--paper);

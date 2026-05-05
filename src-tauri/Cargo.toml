@@ -32,6 +32,9 @@ hex = "0.4"
 dirs = "5"
 parking_lot = "0.12"
 tokio = { version = "1", features = ["sync", "rt", "macros"] }
+ureq = { version = "2", features = ["json"] }
+base64 = "0.22"
+uuid = { version = "1", features = ["v4"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"

@@ -28,8 +28,9 @@
     </a>
     <nav class="topnav">
       <a href="#how">How it works</a>
+      <a href="#setup">Setup</a>
+      <a href="#usecases">Use cases</a>
       <a href="#mcp">MCP</a>
-      <a href="#design">Design</a>
       <a href="https://github.com/rudraptpsingh/platter" target="_blank" rel="noreferrer">GitHub ↗</a>
     </nav>
   </div>
@@ -105,6 +106,114 @@
         <div class="step__num">03</div>
         <h3 class="step__h"><em>Decide</em> when Claude asks</h3>
         <p>The MCP server lets Claude call <code>present_mockups()</code> mid-session. The call blocks. A modal pops on your Mac. <kbd>A</kbd> approve, <kbd>R</kbd> reject, <kbd>1</kbd>–<kbd>9</kbd> pick. Decision flows back. Done.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Setup ─────────────────────────────────────────────────────── -->
+<section id="setup" class="section">
+  <div class="container">
+    <div class="setup-header">
+      <div>
+        <span class="eyebrow">★ get started</span>
+        <h2 class="h2">Up in four steps.</h2>
+      </div>
+      <p class="setup-lede">From download to your first agent-driven review in under five minutes.</p>
+    </div>
+
+    <div class="steps-list">
+      <div class="steps-list__row">
+        <span class="steps-list__n">01</span>
+        <div class="steps-list__main">
+          <h3 class="steps-list__h">Download &amp; install</h3>
+          <p class="steps-list__p">Grab the <code>.dmg</code> from GitHub Releases, drag <strong>platter.app</strong> to Applications, launch. The gallery opens immediately.</p>
+        </div>
+        <a class="steps-list__action" href="https://github.com/rudraptpsingh/platter/releases" target="_blank" rel="noreferrer">Download ↗</a>
+      </div>
+
+      <div class="steps-list__row">
+        <span class="steps-list__n">02</span>
+        <div class="steps-list__main">
+          <h3 class="steps-list__h">Add watch folders</h3>
+          <p class="steps-list__p">Open <strong>Settings → Watch roots</strong> <kbd>⌘,</kbd>. The default <code>~/github/*/mockups</code> is already active. Add any folder where agents drop files.</p>
+        </div>
+        <span class="steps-list__tag">⌘,</span>
+      </div>
+
+      <div class="steps-list__row">
+        <span class="steps-list__n">03</span>
+        <div class="steps-list__main">
+          <h3 class="steps-list__h">Register the MCP server</h3>
+          <p class="steps-list__p">Run once — wires platter into every Claude Code session.</p>
+          <div class="inline-cmd">
+            <span class="inline-cmd__prompt">$</span>
+            <code class="inline-cmd__code" id="setupCmd">claude mcp add platter -- /Applications/platter.app/Contents/MacOS/platter --mcp-stdio</code>
+            <button class="inline-cmd__copy" onclick="copySetupCmd(this)">copy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="steps-list__row">
+        <span class="steps-list__n">04</span>
+        <div class="steps-list__main">
+          <h3 class="steps-list__h">Claude asks — you decide</h3>
+          <p class="steps-list__p">Agent calls <code>present_mockups()</code>. Platter comes forward. Press <kbd>A</kbd> to approve, <kbd>R</kbd> to reject. Work resumes instantly.</p>
+        </div>
+        <div class="steps-list__keys">
+          <kbd>A</kbd><kbd>R</kbd><kbd>1–9</kbd>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Use Cases ──────────────────────────────────── -->
+<section id="usecases" class="section">
+  <div class="container">
+    <div class="setup-header">
+      <div>
+        <span class="eyebrow">★ use cases</span>
+        <h2 class="h2">What it's used for.</h2>
+      </div>
+      <p class="setup-lede">Anywhere a human call sits between an agent action and the next step — that's where platter fits.</p>
+    </div>
+
+    <div class="usecases-list">
+      <article class="uc">
+        <div class="uc__tag">design · html</div>
+        <h3 class="uc__h">UI mockup approval</h3>
+        <p class="uc__p">Claude generates 3–5 variants. You pick the winner in Pick One mode. Iteration time drops from days to minutes.</p>
+      </article>
+
+      <article class="uc">
+        <div class="uc__tag">pdf · markdown</div>
+        <h3 class="uc__h">Document sign-off</h3>
+        <p class="uc__p">Agents draft proposals and spec PDFs. Approved ones go out; rejected ones loop back with your note.</p>
+      </article>
+
+      <article class="uc">
+        <div class="uc__tag">png · compare</div>
+        <h3 class="uc__h">Screenshot regression</h3>
+        <p class="uc__p">Before/after screenshots surface side-by-side. You approve before the PR merges.</p>
+      </article>
+
+      <article class="uc">
+        <div class="uc__tag">share · remote</div>
+        <h3 class="uc__h">Async stakeholder review</h3>
+        <p class="uc__p">Press <kbd>S</kbd> in any preview to create a public link. Client decides in their browser; verdict syncs back while you sleep.</p>
+      </article>
+
+      <article class="uc">
+        <div class="uc__tag">iteration · mcp</div>
+        <h3 class="uc__h">Revision loops</h3>
+        <p class="uc__p">Revise mode sends your note back to the agent mid-session. It adjusts and re-presents — all inside one Claude Code run.</p>
+      </article>
+
+      <article class="uc">
+        <div class="uc__tag">svg · png · batch</div>
+        <h3 class="uc__h">Production asset pipeline</h3>
+        <p class="uc__p">Icons, banners, social images — platter is the last gate. Approved batch gets committed; rejected files never land in the repo.</p>
       </article>
     </div>
   </div>
@@ -201,6 +310,14 @@
 <script>
 function copyCmd(btn){
   const cmd = btn.closest('.cmd-block').querySelector('.cmd-block__cmd').innerText;
+  navigator.clipboard.writeText(cmd).then(()=>{
+    const t = btn.innerText;
+    btn.innerText = 'copied';
+    setTimeout(()=>{ btn.innerText = t; }, 1400);
+  });
+}
+function copySetupCmd(btn){
+  const cmd = document.getElementById('setupCmd').innerText;
   navigator.clipboard.writeText(cmd).then(()=>{
     const t = btn.innerText;
     btn.innerText = 'copied';

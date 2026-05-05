@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { RootInfo } from "../types";
+import type { GitHubUser } from "../lib/github";
 import { api } from "../lib/api";
 import * as telemetry from "../lib/telemetry";
-import { listShares, type ShareLink } from "../lib/share";
 import { Popover, PopoverMenu } from "./Popover";
 
 import "../styles/settings.css";
@@ -10,12 +10,15 @@ import "../styles/settings.css";
 type Props = {
   onClose: () => void;
   onChanged: () => void;
+  githubUser?: GitHubUser | null;
+  onGitHubSignIn?: () => void;
+  onGitHubSignOut?: () => void;
 };
 
-export function Settings({ onClose, onChanged }: Props) {
+export function Settings({ onClose, onChanged, githubUser, onGitHubSignIn, onGitHubSignOut }: Props) {
   const [section, setSection] = useState<
-    "roots" | "claude" | "shared" | "privacy" | "about"
-  >("roots");
+    "account" | "roots" | "claude" | "privacy" | "about"
+  >("account");
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -29,13 +32,29 @@ export function Settings({ onClose, onChanged }: Props) {
   return (
     <div className="settings-shell">
       <aside className="settings-nav">
+        <div className="settings-nav__drag" />
         <button className="settings-nav__close" onClick={onClose} title="Close (Esc)">
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
             <path d="M3 3l8 8M3 11l8-8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
           </svg>
         </button>
 
-        <div className="settings-nav__section">settings</div>
+        <div className="settings-nav__section">account</div>
+        <button
+          className={`settings-nav__row ${section === "account" ? "settings-nav__row--active" : ""}`}
+          onClick={() => setSection("account")}
+        >
+          <GitHubNavIcon />
+          <span style={{ flex: 1 }}>GitHub</span>
+          {!githubUser && (
+            <span className="settings-nav__badge">Sign in</span>
+          )}
+          {githubUser && (
+            <img src={githubUser.avatar_url} alt="" style={{ width: 16, height: 16, borderRadius: "50%" }} />
+          )}
+        </button>
+
+        <div className="settings-nav__section" style={{ marginTop: 14 }}>settings</div>
         <button
           className={`settings-nav__row ${section === "roots" ? "settings-nav__row--active" : ""}`}
           onClick={() => setSection("roots")}
@@ -49,19 +68,13 @@ export function Settings({ onClose, onChanged }: Props) {
           <ClaudeIcon /> Claude integration
         </button>
         <button
-          className={`settings-nav__row ${section === "shared" ? "settings-nav__row--active" : ""}`}
-          onClick={() => setSection("shared")}
-        >
-          <ShareIcon /> Shared links
-        </button>
-        <button
           className={`settings-nav__row ${section === "privacy" ? "settings-nav__row--active" : ""}`}
           onClick={() => setSection("privacy")}
         >
           <PrivacyIcon /> Privacy
         </button>
 
-        <div className="settings-nav__section" style={{ marginTop: 18 }}>about</div>
+        <div className="settings-nav__section" style={{ marginTop: 14 }}>about</div>
         <button
           className={`settings-nav__row ${section === "about" ? "settings-nav__row--active" : ""}`}
           onClick={() => setSection("about")}
@@ -71,13 +84,93 @@ export function Settings({ onClose, onChanged }: Props) {
       </aside>
 
       <main className="settings-pane">
+        <div className="settings-pane__drag" />
+        {section === "account" && (
+          <AccountSection
+            githubUser={githubUser ?? null}
+            onSignIn={onGitHubSignIn ?? (() => {})}
+            onSignOut={onGitHubSignOut ?? (() => {})}
+          />
+        )}
         {section === "roots" && <WatchRoots onChanged={onChanged} />}
         {section === "claude" && <ClaudeSection />}
-        {section === "shared" && <SharedLinksSection />}
         {section === "privacy" && <PrivacySection />}
         {section === "about" && <AboutSection />}
       </main>
     </div>
+  );
+}
+
+// ─── Account (GitHub) ─────────────────────────────────
+
+function AccountSection({
+  githubUser,
+  onSignIn,
+  onSignOut,
+}: {
+  githubUser: GitHubUser | null;
+  onSignIn: () => void;
+  onSignOut: () => void;
+}) {
+  return (
+    <>
+      <div className="settings-head">
+        <div className="settings-eyebrow">★ account</div>
+        <h1 className="settings-title">GitHub</h1>
+        <p className="settings-lede">
+          Sign in to attach your identity to shared review links and see who approved or rejected what.
+        </p>
+      </div>
+
+      <section className="settings-section">
+        {githubUser ? (
+          <div className="account-card account-card--signed-in">
+            <img src={githubUser.avatar_url} alt={githubUser.login} className="account-avatar" />
+            <div className="account-info">
+              <div className="account-name">{githubUser.name ?? githubUser.login}</div>
+              <div className="account-login">@{githubUser.login} · github.com</div>
+            </div>
+            <button
+              className="add-root__btn"
+              style={{ background: "var(--brick)", marginLeft: "auto", flexShrink: 0 }}
+              onClick={onSignOut}
+            >
+              Sign out
+            </button>
+          </div>
+        ) : (
+          <div className="account-card account-card--empty">
+            <div className="account-github-icon">
+              <svg width="28" height="28" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 .2C3.6.2 0 3.8 0 8.2c0 3.5 2.3 6.5 5.5 7.5.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1.1-2.7-1.1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8.6-.2 1.3-.3 2-.3s1.4.1 2 .3c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.3.2.5.7.5 1.4v2.1c0 .2.1.5.6.4 3.2-1 5.5-4 5.5-7.5C16 3.8 12.4.2 8 .2z"/>
+              </svg>
+            </div>
+            <div className="account-info">
+              <div className="account-name">Not signed in</div>
+              <div className="account-login">Sign in to identify yourself on shared review links</div>
+            </div>
+            <button
+              className="add-root__btn"
+              style={{ marginLeft: "auto", flexShrink: 0 }}
+              onClick={onSignIn}
+            >
+              Sign in with GitHub
+            </button>
+          </div>
+        )}
+      </section>
+
+      <section className="settings-section">
+        <div className="settings-section__head">
+          <h2 className="settings-section__title">Why sign in?</h2>
+        </div>
+        <div className="help-card">
+          When you share a review link, the recipient sees your GitHub username and avatar next to their
+          decision. Without sign-in, decisions show as "anonymous reviewer". Your token is stored locally
+          and never leaves your machine.
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -206,14 +299,15 @@ function WatchRoots({ onChanged }: { onChanged: () => void }) {
   );
 }
 
-// ─── Claude integration (read-only for now) ──────────
+// ─── Claude integration ───────────────────────────────
 
 function ClaudeSection() {
-  const cmd = `claude mcp add platter -- /Applications/platter.app/Contents/MacOS/platter --mcp-stdio`;
+  const releaseCmd = `claude mcp add platter -- /Applications/platter.app/Contents/MacOS/platter --mcp-stdio`;
   const devCmd = `claude mcp add platter -- ${getDevBinaryPath()} --mcp-stdio`;
-  const [copied, setCopied] = useState<"" | "release" | "dev">("");
+  const testCmd = `claude -p "call present_mockups for the file ~/Desktop/test.png"`;
+  const [copied, setCopied] = useState<"" | "release" | "dev" | "test">("");
 
-  function copy(text: string, which: "release" | "dev") {
+  function copy(text: string, which: "release" | "dev" | "test") {
     navigator.clipboard.writeText(text);
     setCopied(which);
     setTimeout(() => setCopied(""), 1500);
@@ -223,52 +317,191 @@ function ClaudeSection() {
     <>
       <div className="settings-head">
         <div className="settings-eyebrow">★ mcp · claude integration</div>
-        <h1 className="settings-title">Wire claude up.</h1>
+        <h1 className="settings-title">Wire Claude up.</h1>
         <p className="settings-lede">
-          Once registered, Claude can call <code style={codeStyle}>present_mockups()</code> from any
-          session and the call will block until you decide.
+          Register platter as an MCP server once, then any Claude Code session can call{" "}
+          <code style={codeStyle}>present_mockups()</code> — the call blocks until you decide.
         </p>
       </div>
 
+      {/* Setup steps */}
       <section className="settings-section">
         <div className="settings-section__head">
-          <h2 className="settings-section__title">Register the MCP server</h2>
-          <span className="settings-section__count">run once · stdio transport</span>
+          <h2 className="settings-section__title">Setup guide</h2>
+          <span className="settings-section__count">3 steps · done once</span>
         </div>
 
-        <div style={cmdBlock}>
-          <div style={cmdHeader}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "rgba(244,239,229,0.5)" }}>
-              terminal · zsh
-            </span>
-            <button
-              style={copyBtn}
-              onClick={() => copy(devCmd, "dev")}
-            >
-              {copied === "dev" ? "copied!" : "copy"}
-            </button>
+        <div className="setup-guide">
+          <div className="setup-guide__step">
+            <div className="setup-guide__num">1</div>
+            <div className="setup-guide__body">
+              <div className="setup-guide__title">Register the MCP server</div>
+              <div className="setup-guide__desc">
+                Run this in your terminal. Uses the installed release binary.
+              </div>
+              <div style={cmdBlock}>
+                <div style={cmdHeader}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "rgba(244,239,229,0.5)" }}>
+                    terminal · release
+                  </span>
+                  <button style={copyBtn} onClick={() => copy(releaseCmd, "release")}>
+                    {copied === "release" ? "copied!" : "copy"}
+                  </button>
+                </div>
+                <div style={cmdLine}>
+                  <span style={{ color: "var(--vermilion)", flexShrink: 0 }}>$</span> {releaseCmd}
+                </div>
+              </div>
+              <div style={{ ...cmdBlock, marginTop: 8, opacity: 0.65 }}>
+                <div style={cmdHeader}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "rgba(244,239,229,0.5)" }}>
+                    terminal · dev build
+                  </span>
+                  <button style={copyBtn} onClick={() => copy(devCmd, "dev")}>
+                    {copied === "dev" ? "copied!" : "copy"}
+                  </button>
+                </div>
+                <div style={cmdLine}>
+                  <span style={{ color: "var(--vermilion)", flexShrink: 0 }}>$</span> {devCmd}
+                </div>
+              </div>
+            </div>
           </div>
-          <div style={cmdLine}>
-            <span style={{ color: "var(--vermilion)" }}>$</span> {devCmd}
+
+          <div className="setup-guide__step">
+            <div className="setup-guide__num">2</div>
+            <div className="setup-guide__body">
+              <div className="setup-guide__title">Add a watch folder</div>
+              <div className="setup-guide__desc">
+                Go to <strong>Watch roots</strong> and confirm at least one folder is enabled. The default{" "}
+                <code style={codeStyle}>~/github/*/mockups</code> is active automatically. Drop any file
+                there and it appears in the gallery within seconds.
+              </div>
+            </div>
           </div>
-          <div style={{ ...cmdSub, marginTop: 8 }}>
-            ↑ Use the dev path while iterating. After we ship the notarized release, swap to:
-          </div>
-          <div style={{ ...cmdLine, marginTop: 6, opacity: 0.5 }}>
-            <span style={{ color: "var(--vermilion)" }}>$</span> {cmd}
+
+          <div className="setup-guide__step">
+            <div className="setup-guide__num">3</div>
+            <div className="setup-guide__body">
+              <div className="setup-guide__title">Test the integration</div>
+              <div className="setup-guide__desc">
+                Start a Claude Code session and ask it to call{" "}
+                <code style={codeStyle}>present_mockups()</code> with any file. Platter will jump to the
+                front and ask you to decide.
+              </div>
+              <div style={{ ...cmdBlock, marginTop: 10 }}>
+                <div style={cmdHeader}>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "rgba(244,239,229,0.5)" }}>
+                    quick test
+                  </span>
+                  <button style={copyBtn} onClick={() => copy(testCmd, "test")}>
+                    {copied === "test" ? "copied!" : "copy"}
+                  </button>
+                </div>
+                <div style={cmdLine}>
+                  <span style={{ color: "var(--vermilion)", flexShrink: 0 }}>$</span> {testCmd}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
+      {/* Available tools */}
       <section className="settings-section">
         <div className="settings-section__head">
-          <h2 className="settings-section__title">Status</h2>
-          <span className="settings-section__count">stdio transport</span>
+          <h2 className="settings-section__title">Available tools</h2>
+          <span className="settings-section__count">5 tools · stdio transport</span>
         </div>
-        <div className="help-card">
-          The MCP server listens on a Unix domain socket at{" "}
-          <code>~/Library/Application Support/platter/mcp.sock</code>. When Claude spawns the stdio
-          child, it proxies to this socket. Restart platter to reset the socket.
+
+        <div className="mcp-tools">
+          {[
+            {
+              name: "present_mockups",
+              badge: "blocking",
+              badgeColor: "var(--vermilion)",
+              desc: "Show files and block until the user approves, rejects, ranks, or picks one. The core tool.",
+            },
+            {
+              name: "request_iteration",
+              badge: "blocking",
+              badgeColor: "var(--vermilion)",
+              desc: "Ask for a revision with an optional note. Blocks until the user responds.",
+            },
+            {
+              name: "record_decision",
+              badge: "fire & forget",
+              badgeColor: "var(--sage)",
+              desc: "Record a verdict without asking — use when the answer is obvious.",
+            },
+            {
+              name: "get_decision_history",
+              badge: "read",
+              badgeColor: "var(--ink-3)",
+              desc: "Look up past decisions by path or time range. Useful for context before generating the next version.",
+            },
+            {
+              name: "list_recent",
+              badge: "read",
+              badgeColor: "var(--ink-3)",
+              desc: "List recently indexed files. Ask this before generating more to avoid duplication.",
+            },
+          ].map((t) => (
+            <div key={t.name} className="mcp-tool-row">
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <code style={{ ...codeStyle, fontSize: 12 }}>{t.name}</code>
+                <span style={{
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 9,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.12em",
+                  color: "var(--paper)",
+                  background: t.badgeColor,
+                  padding: "1px 6px",
+                  borderRadius: 100,
+                  fontWeight: 600,
+                }}>
+                  {t.badge}
+                </span>
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.5 }}>{t.desc}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="help-card" style={{ marginTop: 16 }}>
+          The MCP server communicates over stdio. It auto-starts when Claude spawns the binary and shuts
+          down cleanly when the session ends. Socket path:{" "}
+          <code>~/Library/Application Support/platter/mcp.sock</code>.
+        </div>
+      </section>
+
+      {/* Use cases */}
+      <section className="settings-section">
+        <div className="settings-section__head">
+          <h2 className="settings-section__title">Usage patterns</h2>
+          <span className="settings-section__count">prompt ideas for Claude</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[
+            { label: "Approve/reject mockups", prompt: `"Generate 3 UI variants for the login screen. Use present_mockups() so I can pick the best one."` },
+            { label: "Compare before/after", prompt: `"Take a screenshot before and after the CSS change. Call present_mockups() in compare mode."` },
+            { label: "Revision loop", prompt: `"Make a mockup. If I call request_iteration, read my note and try again until I approve."` },
+            { label: "Batch asset approval", prompt: `"Generate icons for all 8 app sections. Bundle them in a present_mockups() call."` },
+          ].map((uc) => (
+            <div key={uc.label} className="root-row" style={{ padding: "12px 16px", gap: 12, flexDirection: "column", alignItems: "stretch" }}>
+              <div style={{ fontWeight: 500, fontSize: 12.5, color: "var(--ink)" }}>{uc.label}</div>
+              <div style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 11.5,
+                color: "var(--ink-2)",
+                background: "rgba(27,23,20,0.04)",
+                padding: "8px 10px",
+                borderRadius: 6,
+                lineHeight: 1.5,
+              }}>{uc.prompt}</div>
+            </div>
+          ))}
         </div>
       </section>
     </>
@@ -374,210 +607,6 @@ function RootRow({
       </Popover>
     </div>
   );
-}
-
-// ─── Shared links ─────────────────────────────────────
-
-function SharedLinksSection() {
-  const [links, setLinks] = useState<ShareLink[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function refresh() {
-    try {
-      const r = await listShares();
-      setLinks(r);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  useEffect(() => {
-    refresh();
-    // Poll every 30s while the pane is open so new decisions surface live
-    const id = window.setInterval(refresh, 30_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const totalDecisions = (links ?? []).reduce(
-    (acc, l) => acc + l.decisions.length,
-    0,
-  );
-  const totalLinks = links?.length ?? 0;
-
-  return (
-    <>
-      <div className="settings-head">
-        <div className="settings-eyebrow">★ public review links</div>
-        <h1 className="settings-title">What people said.</h1>
-        <p className="settings-lede">
-          Every link you've created from a preview, with the decisions reviewers left.
-          Polls every 30 seconds — new feedback surfaces here without a refresh.
-        </p>
-      </div>
-
-      <section className="settings-section">
-        <div className="settings-section__head">
-          <h2 className="settings-section__title">Your links</h2>
-          <span className="settings-section__count">
-            {totalLinks} link{totalLinks === 1 ? "" : "s"} ·{" "}
-            {totalDecisions} decision{totalDecisions === 1 ? "" : "s"}
-          </span>
-          <button
-            className="add-root__btn"
-            style={{ marginLeft: "auto", padding: "5px 12px", fontSize: 11.5 }}
-            onClick={refresh}
-            type="button"
-          >
-            Refresh
-          </button>
-        </div>
-
-        {error && (
-          <div className="help-card" style={{ borderLeft: "2px solid var(--brick)", color: "var(--brick)" }}>
-            {error}
-          </div>
-        )}
-
-        {links === null && !error && (
-          <div className="help-card">Loading…</div>
-        )}
-
-        {links && links.length === 0 && (
-          <div className="help-card">
-            No links yet. Open any HTML, image, or PDF in the preview, click <strong>Share</strong>,
-            and a public review link will appear here once created.
-          </div>
-        )}
-
-        {links && links.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {links.map((l) => (
-              <SharedLinkRow key={l.id} link={l} />
-            ))}
-          </div>
-        )}
-      </section>
-    </>
-  );
-}
-
-function SharedLinkRow({ link }: { link: ShareLink }) {
-  const url = `https://platter.pages.dev/r/${link.id}`;
-  const expiry = link.expires_at
-    ? formatRelativeFuture(link.expires_at)
-    : "never";
-
-  function copy() {
-    navigator.clipboard.writeText(url);
-  }
-
-  return (
-    <div className="root-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <div className="root-row__path" style={{ minWidth: 0 }}>
-          <div className="root-row__glob" style={{ wordBreak: "break-all" }}>
-            {link.filename}
-          </div>
-          <div className="root-row__sub" title={link.prompt ?? ""}>
-            <span className="root-badge">{link.kind}</span>
-            <span style={{ color: "var(--ink-3)", fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {link.prompt ?? "(no prompt)"}
-            </span>
-          </div>
-          <div className="root-row__sub" style={{ marginTop: 4, fontSize: 9.5 }}>
-            <span>{link.view_count} view{link.view_count === 1 ? "" : "s"}</span>
-            <span className="root-row__sub-sep">·</span>
-            <span>expires {expiry}</span>
-            <span className="root-row__sub-sep">·</span>
-            <span style={{ fontFamily: "var(--font-mono)", color: "var(--vermilion)" }}>{url}</span>
-          </div>
-        </div>
-        <div>
-          <div className="root-row__count">{link.decisions.length}</div>
-          <div className="root-row__count-label">decided</div>
-        </div>
-        <button
-          className="kebab-btn"
-          onClick={copy}
-          title="Copy link"
-        >
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-            <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" strokeWidth="1.2" />
-            <path d="M5 3V2a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-1" stroke="currentColor" strokeWidth="1.2" />
-          </svg>
-        </button>
-      </div>
-
-      {link.decisions.length > 0 && (
-        <div style={{ borderTop: "0.5px solid var(--line-soft)", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-          {link.decisions.map((d) => (
-            <div
-              key={d.id}
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 10,
-                fontSize: 12.5,
-                color: "var(--ink-2)",
-              }}
-            >
-              <span
-                style={{
-                  width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 11, fontWeight: 600, color: "var(--paper)",
-                  background:
-                    d.decision === "approved" ? "var(--sage)" :
-                    d.decision === "rejected" ? "var(--brick)" :
-                    "var(--gold)",
-                }}
-                title={d.decision}
-              >
-                {d.decision === "approved" ? "✓" : d.decision === "rejected" ? "✕" : "↻"}
-              </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div>
-                  <strong style={{ color: "var(--ink)" }}>
-                    {d.reviewer_name ?? "anonymous reviewer"}
-                  </strong>{" "}
-                  <span style={{ color: "var(--ink-3)" }}>{d.decision}</span>
-                  <span style={{ color: "var(--ink-4)", fontFamily: "var(--font-mono)", fontSize: 10.5, marginLeft: 8 }}>
-                    {formatRelativeAgo(d.decided_at)}
-                  </span>
-                </div>
-                {d.note && (
-                  <div style={{ marginTop: 3, fontStyle: "italic", color: "var(--ink-2)" }}>
-                    "{d.note}"
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function formatRelativeAgo(unix: number): string {
-  const now = Math.floor(Date.now() / 1000);
-  const diff = now - unix;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
-  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)} d ago`;
-  return new Date(unix * 1000).toLocaleDateString();
-}
-
-function formatRelativeFuture(unix: number): string {
-  const now = Math.floor(Date.now() / 1000);
-  const diff = unix - now;
-  if (diff <= 0) return "expired";
-  if (diff < 3600) return `in ${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `in ${Math.floor(diff / 3600)} hr`;
-  if (diff < 86400 * 7) return `in ${Math.floor(diff / 86400)} d`;
-  return new Date(unix * 1000).toLocaleDateString();
 }
 
 // ─── Privacy ──────────────────────────────────────────
@@ -749,12 +778,6 @@ const cmdLine: React.CSSProperties = {
   color: "rgba(244,239,229,0.95)",
   wordBreak: "break-all",
 };
-const cmdSub: React.CSSProperties = {
-  fontSize: 11,
-  color: "rgba(244,239,229,0.6)",
-  fontFamily: "var(--font-body)",
-  fontStyle: "italic",
-};
 const copyBtn: React.CSSProperties = {
   marginLeft: "auto",
   background: "rgba(244,239,229,0.10)",
@@ -792,17 +815,6 @@ function ClaudeIcon() {
     </svg>
   );
 }
-function ShareIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-      <circle cx="3" cy="7" r="1.6" stroke="currentColor" strokeWidth="1.2" />
-      <circle cx="11" cy="3" r="1.6" stroke="currentColor" strokeWidth="1.2" />
-      <circle cx="11" cy="11" r="1.6" stroke="currentColor" strokeWidth="1.2" />
-      <path d="M4.5 6.5L9.5 4M4.5 7.5L9.5 10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function PrivacyIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -817,6 +829,14 @@ function InfoIcon() {
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
       <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.2" />
       <path d="M7 6v4M7 4v0.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function GitHubNavIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M8 .2C3.6.2 0 3.8 0 8.2c0 3.5 2.3 6.5 5.5 7.5.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1.1-2.7-1.1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8.6-.2 1.3-.3 2-.3s1.4.1 2 .3c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.3.2.5.7.5 1.4v2.1c0 .2.1.5.6.4 3.2-1 5.5-4 5.5-7.5C16 3.8 12.4.2 8 .2z"/>
     </svg>
   );
 }

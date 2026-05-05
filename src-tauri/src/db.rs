@@ -66,6 +66,11 @@ impl Db {
 
             CREATE INDEX IF NOT EXISTS idx_files_root ON files(root_id);
             CREATE INDEX IF NOT EXISTS idx_files_mtime ON files(mtime DESC);
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
             "#,
         )?;
         Ok(Self {
@@ -438,6 +443,46 @@ impl Db {
             )
             .unwrap_or(0);
         Ok((approved, rejected))
+    }
+
+    pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?")?;
+        let mut rows = stmt.query(params![key])?;
+        Ok(rows.next()?.map(|r| r.get(0)).transpose()?)
+    }
+
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            params![key, value],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_setting(&self, key: &str) -> Result<()> {
+        self.conn.lock().unwrap().execute(
+            "DELETE FROM settings WHERE key = ?1",
+            params![key],
+        )?;
+        Ok(())
+    }
+
+    pub fn kind_counts_for_root(&self, root_id: i64) -> Result<std::collections::HashMap<String, i64>> {
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT kind, COUNT(*) as n FROM files WHERE root_id = ?1 GROUP BY kind"
+        )?;
+        let rows = stmt.query_map(params![root_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?;
+        let mut map = std::collections::HashMap::new();
+        for row in rows {
+            let (k, n) = row?;
+            map.insert(k, n);
+        }
+        Ok(map)
     }
 }
 

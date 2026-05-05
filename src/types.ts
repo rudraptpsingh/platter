@@ -33,6 +33,7 @@ export type RootInfo = {
   is_default: boolean;
   resolved_count: number;
   file_count: number;
+  kind_counts?: Record<string, number>;
 };
 
 export type ReviewMode = "approve_reject" | "rank" | "pick_one" | "iteration";

@@ -21,6 +21,7 @@ const DEFAULT_ROOTS: &[(&str, &str)] = &[
 struct AppState {
     db: Arc<Db>,
     bus: Arc<ReviewBus>,
+    initial_folder: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -279,6 +280,7 @@ struct RootInfo {
     is_default: bool,
     resolved_count: i64,
     file_count: i64,
+    kind_counts: std::collections::HashMap<String, i64>,
 }
 
 #[tauri::command]
@@ -302,6 +304,7 @@ fn list_root_info(state: State<AppState>) -> Result<Vec<RootInfo>, String> {
                 })
                 .sum();
             let is_default = default_globs.contains(r.glob.as_str());
+            let kind_counts = state.db.kind_counts_for_root(r.id).unwrap_or_default();
             RootInfo {
                 id: r.id,
                 glob: r.glob,
@@ -310,6 +313,7 @@ fn list_root_info(state: State<AppState>) -> Result<Vec<RootInfo>, String> {
                 is_default,
                 resolved_count,
                 file_count,
+                kind_counts,
             }
         })
         .collect();
@@ -346,8 +350,95 @@ fn resolve_review(decision: ReviewDecision, state: State<AppState>) -> Result<()
     state.bus.resolve(decision)
 }
 
+#[tauri::command]
+fn get_initial_folder(state: State<AppState>) -> Option<String> {
+    state.initial_folder.clone()
+}
+
+#[tauri::command]
+fn remove_file(path: String, state: State<AppState>) -> Result<(), String> {
+    state.db.delete_file(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_github_token(state: State<AppState>) -> Result<Option<String>, String> {
+    state.db.get_setting("github_token").map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn clear_github_token(state: State<AppState>) -> Result<(), String> {
+    state.db.delete_setting("github_token").map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn start_github_oauth(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").map_err(|e| e.to_string())?;
+    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+    let redirect_uri = format!("http://127.0.0.1:{}/callback", port);
+
+    // percent-encode the redirect_uri manually (avoid extra dep)
+    let encoded: String = redirect_uri
+        .chars()
+        .map(|c| match c {
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
+            _ => format!("%{:02X}", c as u32),
+        })
+        .collect();
+
+    let auth_url = format!(
+        "https://platter.pages.dev/auth/github?redirect_uri={}",
+        encoded
+    );
+
+    // open browser — use tauri_plugin_opener
+    tauri_plugin_opener::open_url(&auth_url, None::<String>)
+        .map_err(|e| e.to_string())?;
+
+    let db = state.db.clone();
+    let app_handle2 = app_handle.clone();
+
+    std::thread::spawn(move || {
+        if let Ok((mut stream, _)) = listener.accept() {
+            let mut buf = [0u8; 8192];
+            let n = stream.read(&mut buf).unwrap_or(0);
+            let request = String::from_utf8_lossy(&buf[..n]);
+
+            // Extract token from "GET /callback?token=<tok> HTTP/1.1"
+            let token = request
+                .lines()
+                .next()
+                .and_then(|line| line.split_whitespace().nth(1))
+                .and_then(|path| {
+                    path.split('?').nth(1).and_then(|qs| {
+                        qs.split('&').find_map(|kv| {
+                            let mut parts = kv.splitn(2, '=');
+                            let k = parts.next()?;
+                            let v = parts.next()?;
+                            if k == "token" { Some(v.to_string()) } else { None }
+                        })
+                    })
+                });
+
+            if let Some(tok) = token {
+                let _ = db.set_setting("github_token", &tok);
+                let body = b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n<!doctype html><html><head><meta charset=utf-8><title>platter</title></head><body style='font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#14110D;color:#E8DFCD'><p style='font-size:18px'>Signed in to platter. You can close this tab.</p></body></html>";
+                let _ = stream.write_all(body);
+                let _ = app_handle2.emit("platter:github-authed", tok);
+            }
+        }
+    });
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+pub fn run(open_folder: Option<String>) {
     let db = Arc::new(Db::open(&db::db_path()).expect("open db"));
     let bus: Arc<ReviewBus> = Arc::new(ReviewBus::new());
 
@@ -370,6 +461,7 @@ pub fn run() {
         .manage(AppState {
             db: db.clone(),
             bus: bus.clone(),
+            initial_folder: open_folder.clone(),
         })
         .invoke_handler(tauri::generate_handler![
             list_tree,
@@ -390,7 +482,12 @@ pub fn run() {
             list_root_info,
             add_root,
             remove_root,
-            toggle_root
+            toggle_root,
+            get_initial_folder,
+            remove_file,
+            get_github_token,
+            clear_github_token,
+            start_github_oauth
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
@@ -440,10 +537,12 @@ pub fn run() {
             let mcp_ctx = McpContext {
                 bus: bus_for_setup.clone(),
                 db: db.clone(),
+                app_handle: app.handle().clone(),
             };
             if let Err(e) = mcp::socket::spawn_listener(mcp_ctx) {
                 eprintln!("[platter] failed to start MCP socket: {e}");
             }
+
             Ok(())
         })
         .on_window_event(move |_window, event| {

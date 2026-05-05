@@ -6,8 +6,9 @@ import {
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
-import type { FileRow, FilterDecision, FilterKind, ReviewRequest, TreeNode } from "./types";
+import type { FileRow, FilterDecision, FilterKind, ReviewRequest, RootInfo, TreeNode } from "./types";
 import { api, basename, relativeTime } from "./lib/api";
+import { loadGitHubUser, type GitHubUser } from "./lib/github";
 import { FolderTree } from "./components/FolderTree";
 import { Card } from "./components/Card";
 import { PreviewModal } from "./components/PreviewModal";
@@ -20,17 +21,21 @@ import { ToastProvider, useToast } from "./components/Toast";
 import { Popover, PopoverMenu } from "./components/Popover";
 import { CompareModal } from "./components/CompareModal";
 import { RecapView } from "./components/RecapView";
+import appIcon from "./assets/icon-32.png";
+import { Slideshow } from "./components/Slideshow";
+import { SharedLinksView } from "./components/SharedLinksView";
 import { detectReviewSet } from "./lib/review-set";
 import * as telemetry from "./lib/telemetry";
 import { copyDecisionsMarkdown, type Window as DecisionWindow } from "./lib/decisions";
-import { applyRemoteDecisions } from "./lib/share";
+import { applyRemoteDecisions, listShares } from "./lib/share";
+import { invoke } from "@tauri-apps/api/core";
 
 import "./styles/tokens.css";
 import "./styles/app.css";
 import "./styles/cards.css";
 import "./styles/compare-modal.css";
 
-type View = "home" | "folder" | "search" | "decisions" | "recap";
+type View = "home" | "folder" | "search" | "decisions" | "recap" | "shared";
 type DecisionsFilter = "all" | "approved" | "rejected";
 
 export default function App() {
@@ -59,13 +64,18 @@ function AppInner() {
   const [compareSelection, setCompareSelection] = useState<FileRow[]>([]);
   const [comparePair, setComparePair] = useState<[FileRow, FileRow] | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [slideshow, setSlideshow] = useState<{ files: FileRow[]; startIndex: number } | null>(null);
   const [scanning, setScanning] = useState(true);
   const [showConsent, setShowConsent] = useState(false);
   const [lastScan, setLastScan] = useState(Date.now() / 1000);
+  const [roots, setRoots] = useState<RootInfo[]>([]);
+  const [githubUser, setGitHubUser] = useState<GitHubUser | null>(null);
+  const [sharedCount, setSharedCount] = useState(0);
 
   const refreshTree = useCallback(async () => {
     const t = await api.listTree();
     setTree(t);
+    api.listRootInfo().then(setRoots).catch(() => {});
   }, []);
 
   const refreshRecent = useCallback(async () => {
@@ -131,6 +141,8 @@ function AppInner() {
         refreshDecisionCounts();
         refreshFiles(activePath);
       }
+      // Keep sidebar badge up to date
+      listShares().then((s) => setSharedCount(s.length)).catch(() => {});
     }
     tick(); // immediate on mount
     const id = window.setInterval(tick, 60_000);
@@ -146,6 +158,7 @@ function AppInner() {
     refreshRecent();
     refreshDecisionCounts();
     api.listPendingReviews().then(setPendingReviews).catch(() => {});
+    listShares().then((s) => setSharedCount(s.length)).catch(() => {});
 
     // First-run consent prompt — only inside the actual Tauri app (not the browser dev preview).
     telemetry.init();
@@ -157,6 +170,31 @@ function AppInner() {
       telemetry.track("app_launched", { source: "startup" });
     }
   }, [refreshTree, refreshRecent]);
+
+  // Load GitHub user from stored token on mount
+  useEffect(() => {
+    api.getGitHubToken().then(async (token) => {
+      if (token) {
+        const user = await loadGitHubUser(token);
+        if (user) {
+          setGitHubUser(user);
+        } else {
+          // token stale — clear it
+          api.clearGitHubToken().catch(() => {});
+        }
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Listen for OAuth completion
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<string>("platter:github-authed", async (event) => {
+      const user = await loadGitHubUser(event.payload);
+      if (user) setGitHubUser(user);
+    }).then(fn => { unlisten = fn; });
+    return () => unlisten?.();
+  }, []);
 
   // Dock badge tracks pending review count
   useEffect(() => {
@@ -200,11 +238,23 @@ function AppInner() {
           e.preventDefault();
           setPreviewFile(candidate);
         }
+      } else if (
+        e.key === "Enter" &&
+        !inInput &&
+        !previewFile &&
+        pendingReviews.length === 0 &&
+        !showSettings &&
+        !slideshow &&
+        filteredFilesRef.current.length > 1
+      ) {
+        // Enter on a folder/recent view → play the slideshow
+        e.preventDefault();
+        setSlideshow({ files: filteredFilesRef.current, startIndex: 0 });
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [previewFile, pendingReviews.length, showSettings, compareSelection.length, comparePair, showConsent]);
+  }, [previewFile, pendingReviews.length, showSettings, compareSelection.length, comparePair, showConsent, slideshow]);
 
   // Request notification permission once on startup (no-op if already granted/denied)
   useEffect(() => {
@@ -297,6 +347,29 @@ function AppInner() {
   useEffect(() => {
     refreshFiles(activePath);
   }, [activePath, refreshFiles]);
+
+  // Navigate to initial folder if app was launched with a path arg (--folder)
+  useEffect(() => {
+    invoke<string | null>("get_initial_folder").then((folder) => {
+      if (!folder) return;
+      setActivePath(folder);
+      setView("folder");
+      refreshFiles(folder);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Navigate to a folder via MCP open_folder tool (emitted at runtime)
+  useEffect(() => {
+    const unlisten = listen<string>("platter:open-folder", (event) => {
+      const folder = event.payload;
+      setActivePath(folder);
+      setView("folder");
+      refreshFiles(folder);
+      api.rescan();
+    });
+    return () => { unlisten.then((u) => u()); };
+  }, [refreshFiles]);
 
   // Live updates
   useEffect(() => {
@@ -419,6 +492,12 @@ function AppInner() {
     setSearch("");
   }, []);
 
+  const handleSharedView = useCallback(() => {
+    setView("shared");
+    setActivePath(null);
+    setSearch("");
+  }, []);
+
   const handleDecisionsView = useCallback(
     (filter: DecisionsFilter) => {
       setView("decisions");
@@ -500,13 +579,26 @@ function AppInner() {
         onSelect={handleSelectFolder}
         onDecisionsView={handleDecisionsView}
         onRecapView={handleRecapView}
+        onSharedView={handleSharedView}
+        sharedCount={sharedCount}
         decisionsFilter={decisionsFilter}
         decisionCounts={decisionCounts}
         scanning={scanning}
+        roots={roots}
+        onRemoveRoot={async (id) => {
+          await api.removeRoot(id);
+          await refreshTree();
+        }}
+        githubUser={githubUser}
+        onGitHubSignIn={() => api.startGitHubOAuth().catch(console.error)}
+        onGitHubSignOut={() => {
+          api.clearGitHubToken().catch(() => {});
+          setGitHubUser(null);
+        }}
       />
 
       <main className="main">
-        {view !== "recap" && (
+        {view !== "recap" && view !== "shared" && (
         <Toolbar
           view={view}
           activePath={activePath}
@@ -520,11 +612,18 @@ function AppInner() {
           counts={counts}
           onRescan={() => api.rescan()}
           onOpenSettings={() => setShowSettings(true)}
+          onPlaySlideshow={
+            filteredFiles.length > 1
+              ? () => setSlideshow({ files: filteredFiles, startIndex: 0 })
+              : undefined
+          }
           decisionsFilter={decisionsFilter}
         />
         )}
 
-        {view === "recap" ? (
+        {view === "shared" ? (
+          <SharedLinksView />
+        ) : view === "recap" ? (
           <RecapView
             onOpenFile={(f) => setPreviewFile(f)}
             onJumpToFolder={(folder) => handleSelectFolder(folder)}
@@ -613,6 +712,12 @@ function AppInner() {
               refreshRecent();
               refreshFiles(activePath);
             }}
+            githubUser={githubUser}
+            onGitHubSignIn={() => api.startGitHubOAuth().catch(console.error)}
+            onGitHubSignOut={() => {
+              api.clearGitHubToken().catch(() => {});
+              setGitHubUser(null);
+            }}
           />
         )}
 
@@ -654,6 +759,14 @@ function AppInner() {
           />
         )}
 
+        {slideshow && (
+          <Slideshow
+            files={slideshow.files}
+            startIndex={slideshow.startIndex}
+            onClose={() => setSlideshow(null)}
+          />
+        )}
+
         <UpdateBanner />
 
         {showConsent && (
@@ -681,9 +794,16 @@ function Sidebar({
   onSelect,
   onDecisionsView,
   onRecapView,
+  onSharedView,
+  sharedCount,
   decisionsFilter,
   decisionCounts,
   scanning,
+  roots,
+  onRemoveRoot,
+  githubUser,
+  onGitHubSignIn,
+  onGitHubSignOut,
 }: {
   tree: TreeNode[];
   activePath: string | null;
@@ -692,16 +812,25 @@ function Sidebar({
   onSelect: (p: string) => void;
   onDecisionsView: (filter: DecisionsFilter) => void;
   onRecapView: () => void;
+  onSharedView: () => void;
+  sharedCount: number;
   decisionsFilter: DecisionsFilter;
   decisionCounts: { approved: number; rejected: number };
   scanning: boolean;
+  roots: RootInfo[];
+  onRemoveRoot: (id: number) => void;
+  githubUser: GitHubUser | null;
+  onGitHubSignIn: () => void;
+  onGitHubSignOut: () => void;
 }) {
   const totalFiles = tree.reduce((acc, t) => acc + t.count, 0);
   return (
     <aside className="sidebar">
+      {/* Empty drag strip — reserved exclusively for macOS traffic lights */}
       <div className="titlebar-drag" />
+      {/* Brand section sits below the traffic lights */}
       <div className="sidebar__head">
-        <span className="sidebar__brand-mark" />
+        <img src={appIcon} width={22} height={22} alt="" className="sidebar__app-icon" />
         <span className="sidebar__brand">platter</span>
       </div>
       <div className="sidebar__scroll">
@@ -724,9 +853,9 @@ function Sidebar({
           </span>
         </div>
 
-        <FolderTree nodes={tree} activePath={activePath} onSelect={onSelect} />
+        <FolderTree nodes={tree} activePath={activePath} onSelect={onSelect} roots={roots} onRemoveRoot={onRemoveRoot} />
 
-        <div className="tree-section" style={{ marginTop: 16 }}>smart</div>
+        <div className="tree-section">Views</div>
         <div
           className={`tree-row ${view === "recap" ? "tree-row--active" : ""}`}
           onClick={onRecapView}
@@ -741,8 +870,23 @@ function Sidebar({
           </svg>
           <span className="tree-row__label">Recap</span>
         </div>
+        <div
+          className={`tree-row ${view === "shared" ? "tree-row--active" : ""}`}
+          onClick={onSharedView}
+        >
+          <svg className="tree-row__icon" width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <circle cx="3" cy="7" r="1.8" stroke="currentColor" strokeWidth="1.1"/>
+            <circle cx="11" cy="3" r="1.8" stroke="currentColor" strokeWidth="1.1"/>
+            <circle cx="11" cy="11" r="1.8" stroke="currentColor" strokeWidth="1.1"/>
+            <path d="M4.7 6.1L9.3 3.9M4.7 7.9L9.3 10.1" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
+          </svg>
+          <span className="tree-row__label">Shared links</span>
+          {sharedCount > 0 && (
+            <span className="tree-row__count">{sharedCount}</span>
+          )}
+        </div>
 
-        <div className="tree-section" style={{ marginTop: 16 }}>decisions</div>
+        <div className="tree-section">Decisions</div>
         <div
           className={`tree-row ${view === "decisions" && decisionsFilter === "approved" ? "tree-row--active" : ""}`}
           onClick={() => onDecisionsView("approved")}
@@ -780,8 +924,78 @@ function Sidebar({
           <div className="sidebar__footer-label">{scanning ? "scanning…" : "ready"}</div>
           <div className="sidebar__footer-sub">{totalFiles} files indexed</div>
         </div>
+        <div className="sidebar__footer-github">
+          <GitHubFooter
+            githubUser={githubUser}
+            onSignIn={onGitHubSignIn}
+            onSignOut={onGitHubSignOut}
+          />
+        </div>
       </div>
     </aside>
+  );
+}
+
+function GitHubFooter({
+  githubUser,
+  onSignIn,
+  onSignOut,
+}: {
+  githubUser: GitHubUser | null;
+  onSignIn: () => void;
+  onSignOut: () => void;
+}) {
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  if (!githubUser) {
+    return (
+      <button className="sidebar__github-signin" onClick={onSignIn}>
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 .2C3.6.2 0 3.8 0 8.2c0 3.5 2.3 6.5 5.5 7.5.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1.1-2.7-1.1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8.6-.2 1.3-.3 2-.3s1.4.1 2 .3c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.3.2.5.7.5 1.4v2.1c0 .2.1.5.6.4 3.2-1 5.5-4 5.5-7.5C16 3.8 12.4.2 8 .2z"/>
+        </svg>
+        Sign in with GitHub
+      </button>
+    );
+  }
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        className="sidebar__github-user"
+        onClick={() => setMenuOpen((v) => !v)}
+        title={`@${githubUser.login}`}
+      >
+        <img
+          src={githubUser.avatar_url}
+          alt={githubUser.login}
+          className="sidebar__github-avatar"
+        />
+        <span className="sidebar__github-login">@{githubUser.login}</span>
+        <svg width="8" height="8" viewBox="0 0 8 8" fill="none" style={{ opacity: 0.4, flexShrink: 0 }}>
+          <path d="M1.5 2.5L4 5l2.5-2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      <Popover open={menuOpen} anchorRef={btnRef} onClose={() => setMenuOpen(false)} anchor="top-start">
+        <div className="gh-menu">
+          <div className="gh-menu__head">
+            <img src={githubUser.avatar_url} alt="" className="gh-menu__avatar" />
+            <div>
+              <div className="gh-menu__name">{githubUser.name ?? githubUser.login}</div>
+              <div className="gh-menu__login">@{githubUser.login}</div>
+            </div>
+          </div>
+          <div className="gh-menu__divider" />
+          <button
+            className="gh-menu__item gh-menu__item--danger"
+            onClick={() => { setMenuOpen(false); onSignOut(); }}
+          >
+            Sign out
+          </button>
+        </div>
+      </Popover>
+    </>
   );
 }
 
@@ -798,6 +1012,7 @@ function Toolbar({
   counts,
   onRescan,
   onOpenSettings,
+  onPlaySlideshow,
   decisionsFilter,
 }: {
   view: View;
@@ -815,6 +1030,7 @@ function Toolbar({
   };
   onRescan: () => void;
   onOpenSettings: () => void;
+  onPlaySlideshow?: () => void;
   decisionsFilter: DecisionsFilter;
 }) {
   const breadcrumb = activePath ? activePath.replace(/\/Users\/[^/]+/, "~") : null;
@@ -823,59 +1039,43 @@ function Toolbar({
   let leadingTitle: React.ReactNode;
   let leadingSub: string;
   if (view === "home") {
-    leadingTitle = (
-      <span className="crumb__current" style={{ fontStyle: "italic" }}>
-        Recent across everything
-      </span>
-    );
-    leadingSub = `${stats.total} most recent · ${stats.newCount} new · scanned ${relativeTime(stats.lastScan)}`;
+    leadingTitle = <span className="crumb__current">Recent</span>;
+    leadingSub = `${stats.total} files · ${stats.newCount > 0 ? `${stats.newCount} new · ` : ""}scanned ${relativeTime(stats.lastScan)}`;
   } else if (view === "search") {
-    leadingTitle = (
-      <span className="crumb__current" style={{ fontStyle: "italic" }}>
-        Search results
-      </span>
-    );
+    leadingTitle = <span className="crumb__current">Search</span>;
     leadingSub = `${stats.total} match${stats.total === 1 ? "" : "es"}`;
   } else if (view === "decisions") {
     const label =
-      decisionsFilter === "approved"
-        ? "Approved"
-        : decisionsFilter === "rejected"
-        ? "Rejected"
-        : "All decisions";
-    leadingTitle = (
-      <span className="crumb__current" style={{ fontStyle: "italic" }}>
-        {label}
-      </span>
-    );
+      decisionsFilter === "approved" ? "Approved"
+      : decisionsFilter === "rejected" ? "Rejected"
+      : "All decisions";
+    leadingTitle = <span className="crumb__current">{label}</span>;
     leadingSub = `${stats.total} decision${stats.total === 1 ? "" : "s"}`;
   } else if (parts.length > 0) {
     leadingTitle = (
       <>
         {parts.slice(0, -1).map((p, i) => (
           <span key={i} style={{ display: "inline-flex", alignItems: "center" }}>
-            <span>{p}</span>
-            <span className="crumb__sep" style={{ margin: "0 4px" }}>/</span>
+            <span style={{ color: "var(--ink-3)", fontSize: 13, fontWeight: 400 }}>{p}</span>
+            <span className="crumb__sep" style={{ margin: "0 3px" }}>/</span>
           </span>
         ))}
         <span className="crumb__current">{parts[parts.length - 1]}</span>
       </>
     );
-    leadingSub = `${stats.total} items${
-      stats.newCount > 0 ? ` · ${stats.newCount} new` : ""
-    } · scanned ${relativeTime(stats.lastScan)}`;
+    leadingSub = `${stats.total} items${stats.newCount > 0 ? ` · ${stats.newCount} new` : ""} · scanned ${relativeTime(stats.lastScan)}`;
   } else {
-    leadingTitle = (
-      <span className="crumb__current" style={{ fontStyle: "italic", color: "var(--ink-3)" }}>
-        choose a folder
-      </span>
-    );
+    leadingTitle = <span className="crumb__current" style={{ color: "var(--ink-3)", fontWeight: 400 }}>Choose a folder</span>;
     leadingSub = "";
   }
 
   return (
     <div className="toolbar">
-      <div className="toolbar__top">
+      {/* Drag strip — aligns with sidebar titlebar-drag at same height */}
+      <div className="toolbar__top" />
+
+      {/* Nav row — breadcrumb + actions */}
+      <div className="toolbar__nav">
         <div className="crumb">
           {leadingTitle}
           {leadingSub && <span className="crumb__sub">{leadingSub}</span>}
@@ -893,27 +1093,27 @@ function Toolbar({
             onChange={(e) => onSearch(e.target.value)}
           />
         </div>
+        {onPlaySlideshow && (
+          <button className="tool-btn tool-btn--primary" onClick={onPlaySlideshow} title="Play slideshow (Enter)">
+            <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+              <path d="M4 2v10l8-5z" fill="currentColor" />
+            </svg>
+            Slideshow
+          </button>
+        )}
         <ExportDecisionsButton />
         <button className="tool-icon" onClick={onRescan} title="Rescan">
           <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-            <path
-              d="M2 7a5 5 0 0 1 9-3M12 7a5 5 0 0 1-9 3M11 1v3h-3M3 13v-3h3"
-              stroke="currentColor"
-              strokeWidth="1.1"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <path d="M2 7a5 5 0 0 1 9-3M12 7a5 5 0 0 1-9 3M11 1v3h-3M3 13v-3h3"
+              stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
         <button className="tool-icon" onClick={onOpenSettings} title="Settings (⌘,)">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <circle cx="7" cy="7" r="2" stroke="currentColor" strokeWidth="1.2" />
-            <path
-              d="M7 1v1.5M7 11.5V13M13 7h-1.5M2.5 7H1M11.24 2.76l-1.06 1.06M3.82 10.18l-1.06 1.06M11.24 11.24l-1.06-1.06M3.82 3.82L2.76 2.76"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-            />
+            <path d="M2 3.5h10M2 7h10M2 10.5h10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            <circle cx="5" cy="3.5" r="1.5" fill="var(--paper)" stroke="currentColor" strokeWidth="1.2"/>
+            <circle cx="9" cy="7" r="1.5" fill="var(--paper)" stroke="currentColor" strokeWidth="1.2"/>
+            <circle cx="5" cy="10.5" r="1.5" fill="var(--paper)" stroke="currentColor" strokeWidth="1.2"/>
           </svg>
         </button>
       </div>

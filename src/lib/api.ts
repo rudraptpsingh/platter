@@ -30,6 +30,10 @@ export const api = {
   removeRoot: (id: number) => invoke<void>("remove_root", { id }),
   toggleRoot: (id: number, enabled: boolean) =>
     invoke<void>("toggle_root", { id, enabled }),
+  removeFile: (path: string) => invoke<void>("remove_file", { path }),
+  startGitHubOAuth: () => invoke<void>("start_github_oauth"),
+  getGitHubToken: () => invoke<string | null>("get_github_token"),
+  clearGitHubToken: () => invoke<void>("clear_github_token"),
 };
 
 export function fileUrl(absolutePath: string): string {

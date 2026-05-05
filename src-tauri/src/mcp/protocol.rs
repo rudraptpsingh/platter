@@ -2,6 +2,7 @@ use super::bus::{new_request_id, ReviewMode, ReviewRequest};
 use super::context::McpContext;
 use serde_json::{json, Value};
 use std::time::Duration;
+use tauri::Emitter;
 
 pub const PROTOCOL_VERSION: &str = "2024-11-05";
 pub const SERVER_NAME: &str = "platter";
@@ -170,6 +171,52 @@ fn request_iteration_tool() -> Value {
     })
 }
 
+fn open_folder_tool() -> Value {
+    json!({
+        "name": "open_folder",
+        "description": "Navigate the running Platter window to a specific folder, showing all mockups inside it. Use this immediately after creating mockup files so the user can see and review them without manual navigation. Also starts a rescan if the folder is new.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Absolute path to the folder to display."
+                }
+            },
+            "required": ["path"]
+        }
+    })
+}
+
+fn create_share_tool() -> Value {
+    json!({
+        "name": "create_share",
+        "description": "Upload one or more files to Platter's public sharing service and return a single URL. For multiple files, returns a collection link showing all items in a slideshow/grid — one URL, per-item approve/reject/iterate, decisions carry back automatically. Supports HTML, PNG, JPG, SVG, PDF, GIF, WebP, MD.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "paths": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Absolute paths to share. Single item → individual link. Multiple items → collection link (slideshow + per-item decisions). Prefer this over 'path' when sharing a set."
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Shorthand for a single file. Ignored if 'paths' is provided."
+                },
+                "prompt": {
+                    "type": "string",
+                    "description": "Message shown to the reviewer, e.g. 'Which layout do you prefer?'"
+                },
+                "expires_seconds": {
+                    "type": "number",
+                    "description": "Optional TTL in seconds. Omit for no expiry."
+                }
+            }
+        }
+    })
+}
+
 fn list_recent_tool() -> Value {
     json!({
         "name": "list_recent",
@@ -226,7 +273,9 @@ pub fn dispatch(req: JsonRpcRequest, ctx: &McpContext) -> Option<JsonRpcResponse
                     request_iteration_tool(),
                     record_decision_tool(),
                     get_decision_history_tool(),
-                    list_recent_tool()
+                    list_recent_tool(),
+                    open_folder_tool(),
+                    create_share_tool()
                 ]
             }),
         )),
@@ -241,6 +290,8 @@ pub fn dispatch(req: JsonRpcRequest, ctx: &McpContext) -> Option<JsonRpcResponse
                 "record_decision" => Some(handle_record_decision(id, args, ctx)),
                 "get_decision_history" => Some(handle_get_decision_history(id, args, ctx)),
                 "list_recent" => Some(handle_list_recent(id, args, ctx)),
+                "open_folder" => Some(handle_open_folder(id, args, ctx)),
+                "create_share" => Some(handle_create_share(id, args, ctx)),
                 _ => Some(err(id, -32601, &format!("unknown tool: {}", tool_name))),
             }
         }
@@ -484,4 +535,120 @@ fn handle_list_recent(id: Value, args: Value, ctx: &McpContext) -> JsonRpcRespon
             "count": filtered.len()
         })),
     )
+}
+
+fn handle_open_folder(id: Value, args: Value, ctx: &McpContext) -> JsonRpcResponse {
+    let path = match args.get("path").and_then(|v| v.as_str()) {
+        Some(p) => p.to_string(),
+        None => return err(id, -32602, "path is required"),
+    };
+    if !std::path::Path::new(&path).exists() {
+        return err(id, -32602, &format!("path does not exist: {path}"));
+    }
+    // Trigger a rescan so newly created files are indexed before the UI renders
+    let db = ctx.db.clone();
+    if let Ok(roots) = db.list_roots() {
+        for root in roots.iter().filter(|r| r.enabled) {
+            let _ = crate::scanner::scan_root(&db, root.id, &root.glob);
+        }
+    }
+    match ctx.app_handle.emit("platter:open-folder", &path) {
+        Ok(()) => ok(id, tool_text_result(&json!({ "opened": path }))),
+        Err(e) => err(id, -32603, &format!("emit failed: {e}")),
+    }
+}
+
+fn handle_create_share(id: Value, args: Value, ctx: &McpContext) -> JsonRpcResponse {
+    use base64::Engine;
+
+    // Resolve paths: prefer "paths" array, fall back to single "path"
+    let paths: Vec<String> = if let Some(arr) = args.get("paths").and_then(|v| v.as_array()) {
+        arr.iter().filter_map(|v| v.as_str().map(String::from)).collect()
+    } else if let Some(p) = args.get("path").and_then(|v| v.as_str()) {
+        vec![p.to_string()]
+    } else {
+        return err(id, -32602, "provide 'paths' (array) or 'path' (string)");
+    };
+
+    if paths.is_empty() {
+        return err(id, -32602, "paths must not be empty");
+    }
+
+    let prompt = args.get("prompt").and_then(|v| v.as_str()).map(String::from);
+    let expires_seconds = args.get("expires_seconds").and_then(|v| v.as_u64());
+    let device_id = get_or_create_device_id(&ctx.db);
+
+    // Single file → individual share link (original endpoint)
+    if paths.len() == 1 {
+        let path = &paths[0];
+        let bytes = match std::fs::read(path) {
+            Ok(b) => b,
+            Err(e) => return err(id, -32602, &format!("cannot read file: {e}")),
+        };
+        let content_b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        let filename = std::path::Path::new(path)
+            .file_name().and_then(|n| n.to_str()).unwrap_or("asset");
+        let kind = filename.rsplit('.').next().unwrap_or("").to_lowercase();
+
+        let mut body = json!({
+            "device_id": device_id,
+            "filename": filename,
+            "kind": kind,
+            "content_b64": content_b64,
+        });
+        if let Some(p) = &prompt { body["prompt"] = json!(p); }
+        if let Some(exp) = expires_seconds { body["expires_seconds"] = json!(exp); }
+
+        return match ureq::post("https://platter.pages.dev/api/share/create")
+            .set("Content-Type", "application/json")
+            .send_json(&body)
+        {
+            Ok(resp) => match resp.into_json::<serde_json::Value>() {
+                Ok(j) => ok(id, tool_text_result(&j)),
+                Err(e) => err(id, -32603, &format!("bad response JSON: {e}")),
+            },
+            Err(e) => err(id, -32603, &format!("share upload failed: {e}")),
+        };
+    }
+
+    // Multiple files → collection link
+    let mut items: Vec<serde_json::Value> = Vec::new();
+    for path in &paths {
+        let bytes = match std::fs::read(path) {
+            Ok(b) => b,
+            Err(e) => return err(id, -32602, &format!("cannot read {path}: {e}")),
+        };
+        let content_b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        let filename = std::path::Path::new(path)
+            .file_name().and_then(|n| n.to_str()).unwrap_or("asset");
+        let kind = filename.rsplit('.').next().unwrap_or("").to_lowercase();
+        items.push(json!({ "filename": filename, "kind": kind, "content_b64": content_b64 }));
+    }
+
+    let mut body = json!({
+        "device_id": device_id,
+        "items": items,
+    });
+    if let Some(p) = &prompt { body["prompt"] = json!(p); }
+    if let Some(exp) = expires_seconds { body["expires_seconds"] = json!(exp); }
+
+    match ureq::post("https://platter.pages.dev/api/share/create-collection")
+        .set("Content-Type", "application/json")
+        .send_json(&body)
+    {
+        Ok(resp) => match resp.into_json::<serde_json::Value>() {
+            Ok(j) => ok(id, tool_text_result(&j)),
+            Err(e) => err(id, -32603, &format!("bad response JSON: {e}")),
+        },
+        Err(e) => err(id, -32603, &format!("collection upload failed: {e}")),
+    }
+}
+
+fn get_or_create_device_id(db: &crate::db::Db) -> String {
+    if let Ok(Some(id)) = db.get_setting("device_id") {
+        return id;
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    let _ = db.set_setting("device_id", &id);
+    id
 }

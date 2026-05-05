@@ -9,5 +9,19 @@ fn main() {
         }
         return;
     }
-    platter_lib::run()
+    // First positional arg that isn't a flag is treated as a folder to open.
+    let open_folder: Option<String> = args.iter().skip(1)
+        .find(|a| !a.starts_with('-'))
+        .map(|p| {
+            // Resolve relative paths against cwd so the app always gets an absolute path.
+            let path = std::path::Path::new(p);
+            if path.is_absolute() {
+                p.clone()
+            } else {
+                std::env::current_dir()
+                    .map(|cwd| cwd.join(path).to_string_lossy().into_owned())
+                    .unwrap_or_else(|_| p.clone())
+            }
+        });
+    platter_lib::run(open_folder)
 }
