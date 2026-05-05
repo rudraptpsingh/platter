@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "../lib/updater";
 
 import "../styles/update-banner.css";
@@ -7,6 +7,7 @@ const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 export function UpdateBanner() {
   const [state, setState] = useState<UpdateState>({ kind: "idle" });
+  const errorCountRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -17,7 +18,25 @@ export function UpdateBanner() {
       setState((prev) => (prev.kind === "downloading" || prev.kind === "ready" ? prev : { kind: "checking" }));
       const next = await checkForUpdate();
       if (cancelled) return;
-      // Don't downgrade from "ready" or "downloading" if a check accidentally fires
+
+      // Track consecutive errors. Don't surface error UI until we've failed
+      // ~3 checks in a row — transient network blips and "no manifest yet"
+      // shouldn't burn the user's attention with a red banner.
+      if (next.kind === "error") {
+        errorCountRef.current += 1;
+        console.debug(
+          `[updater] check failed (${errorCountRef.current} in a row):`,
+          next.message,
+        );
+        setState((prev) => {
+          if (prev.kind === "downloading" || prev.kind === "ready") return prev;
+          // Stay idle for the first 2 failures; show the banner only after the third
+          return errorCountRef.current >= 3 ? next : { kind: "idle" };
+        });
+        return;
+      }
+
+      errorCountRef.current = 0;
       setState((prev) => (prev.kind === "downloading" || prev.kind === "ready" ? prev : next));
     }
 

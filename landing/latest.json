@@ -1,0 +1,6 @@
+{
+  "version": "0.4.0",
+  "notes": "Initial published manifest. The first signed release will overwrite this via the GitHub Actions workflow on tag push.",
+  "pub_date": "2026-05-05T07:00:00Z",
+  "platforms": {}
+}

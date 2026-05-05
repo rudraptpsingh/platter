@@ -22,5 +22,10 @@
 /*.html
   Cache-Control: public, max-age=300, must-revalidate
 
+# Auto-update manifest — short cache so a freshly-cut release reaches users fast.
+/latest.json
+  Cache-Control: public, max-age=120, must-revalidate
+  Content-Type: application/json; charset=utf-8
+
 /
   Cache-Control: public, max-age=300, must-revalidate
