@@ -315,12 +315,12 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
                 Copy
               </button>
             )}
-            <button className="btn" onClick={reveal} title="Reveal in Finder">
+            <button className="btn btn--icon" onClick={reveal} title="Reveal in Finder">
               <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
                 <path d="M2 4l5 4 5-4M2 4v8h10V4" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
               </svg>
             </button>
-            <button className="btn" onClick={openInBrowser} title="Open in browser">
+            <button className="btn btn--icon" onClick={openInBrowser} title="Open in browser">
               <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
                 <path d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
               </svg>

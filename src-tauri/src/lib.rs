@@ -361,6 +361,16 @@ fn remove_file(path: String, state: State<AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn get_device_id(state: State<AppState>) -> String {
+    if let Ok(Some(id)) = state.db.get_setting("device_id") {
+        return id;
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    let _ = state.db.set_setting("device_id", &id);
+    id
+}
+
+#[tauri::command]
 fn get_github_token(state: State<AppState>) -> Result<Option<String>, String> {
     state.db.get_setting("github_token").map_err(|e| e.to_string())
 }
@@ -485,6 +495,7 @@ pub fn run(open_folder: Option<String>) {
             toggle_root,
             get_initial_folder,
             remove_file,
+            get_device_id,
             get_github_token,
             clear_github_token,
             start_github_oauth

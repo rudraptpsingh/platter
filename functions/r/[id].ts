@@ -57,17 +57,16 @@ function renderPage(id: string, filename: string, kind: string, prompt: string |
   const promptText = prompt ? esc(prompt) : "What do you think?";
   const safeName   = esc(filename);
 
-  let stageEl = "";
+  let innerEl = "";
   if (isHtml) {
-    stageEl = `<iframe id="asset" class="asset asset--frame" src="${assetUrl}"
+    innerEl = `<iframe id="asset" class="asset asset--frame" src="${assetUrl}"
       sandbox="allow-same-origin allow-scripts" title="${safeName}"></iframe>`;
   } else if (isImage) {
-    stageEl = `<img id="asset" class="asset asset--img" src="${assetUrl}" alt="${safeName}">`;
+    innerEl = `<img id="asset" class="asset asset--img" src="${assetUrl}" alt="${safeName}">`;
   } else if (isPdf) {
-    stageEl = `<embed id="asset" class="asset asset--frame" src="${assetUrl}" type="application/pdf">`;
+    innerEl = `<embed id="asset" class="asset asset--frame" src="${assetUrl}" type="application/pdf">`;
   } else {
-    stageEl = `<div id="asset" class="asset asset--fallback">
-      <a href="${assetUrl}" target="_blank" rel="noopener">Download ${safeName} ↗</a></div>`;
+    innerEl = `<a id="asset" class="asset asset--fallback" href="${assetUrl}" target="_blank" rel="noopener">Download ${safeName} ↗</a>`;
   }
 
   return /* html */`<!doctype html>
@@ -109,7 +108,7 @@ ${PAGE_STYLES}
   <!-- Stage -->
   <div class="stage" id="stage">
     <div class="stage__shimmer" id="shimmer"></div>
-    ${stageEl}
+    <div class="asset-wrap" id="assetWrap">${innerEl}</div>
     <div class="stage__actions">
       ${isHtml ? `
       <button class="stage__dl" id="copyCodeBtn" title="Copy HTML source">
@@ -215,28 +214,39 @@ ${PAGE_STYLES}
     submit('iterated');
   });
 
-  // Scale an HTML iframe down so the full design is visible without clipping.
+  // On desktop render the full 1280×800 layout; on mobile use the device viewport
+  // so narrow designs don't appear as a tiny scaled-down desktop view.
+  const isMobile  = window.innerWidth < 768;
+  const NATIVE_W  = isMobile ? window.innerWidth  : 1280;
+  const NATIVE_H  = isMobile ? window.innerHeight : 800;
+  const assetWrap = document.getElementById('assetWrap');
+
   function fitFrame() {
-    if (!asset || asset.tagName !== 'IFRAME') return;
-    const stage = document.getElementById('stage');
-    const aw = stage.clientWidth  - 112;
-    const ah = stage.clientHeight - 16;
-    let nw = 1080, nh = 1080;
-    try {
-      const doc = asset.contentDocument;
-      if (doc && doc.documentElement) {
-        nw = doc.documentElement.scrollWidth  || nw;
-        nh = doc.documentElement.scrollHeight || nh;
-      }
-    } catch(e) {}
-    const scale = Math.min(aw / nw, ah / nh, 1);
-    asset.style.width  = nw + 'px';
-    asset.style.height = nh + 'px';
-    asset.style.zoom   = String(scale);
+    if (!assetWrap) return;
+    const stageEl = document.getElementById('stage');
+    const hudEl   = document.getElementById('hud');
+    const topPad  = 20;
+    const botPad  = (hudEl ? hudEl.offsetHeight : 90) + 20;
+    // Push bottom padding so flex centering keeps the frame above the fixed HUD
+    stageEl.style.paddingBottom = botPad + 'px';
+    const availW  = stageEl.clientWidth  - 56;            // 28px side padding × 2
+    const availH  = stageEl.clientHeight - topPad - botPad;
+    const scale   = Math.min(availW / NATIVE_W, availH / NATIVE_H, 1);
+    const fw = Math.round(NATIVE_W * scale);
+    const fh = Math.round(NATIVE_H * scale);
+    assetWrap.style.width  = fw + 'px';
+    assetWrap.style.height = fh + 'px';
+    if (asset && asset.tagName === 'IFRAME') {
+      asset.style.width     = NATIVE_W + 'px';
+      asset.style.height    = NATIVE_H + 'px';
+      asset.style.transform = 'translate(-50%,-50%) scale(' + scale + ')';
+    }
   }
+  // Size the frame immediately so the iframe has a container before it loads
+  fitFrame();
   window.addEventListener('resize', fitFrame);
 
-  // Hide shimmer once asset loads; also fit iframe content
+  // Hide shimmer once asset loads
   function onLoad() {
     shimmer.style.opacity = '0';
     setTimeout(() => shimmer.remove(), 400);
@@ -396,12 +406,12 @@ button{font-family:inherit;cursor:pointer;}
 
 const PAGE_STYLES = /* html */`
 <style>
-/* ── Layout: full-viewport stack ── */
+/* ── Layout: header + prompt stack, stage fills rest, hud floats over bottom ── */
 html, body { height: 100%; overflow: hidden; }
 body {
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  grid-template-areas: "hd" "prompt" "stage" "hud";
+  grid-template-rows: auto auto 1fr;
+  grid-template-areas: "hd" "prompt" "stage";
   min-height: 0;
 }
 
@@ -457,52 +467,69 @@ body {
   font-family:ui-serif,"New York",Georgia,serif;font-style:italic;font-weight:400;
   font-size:clamp(20px,3vw,30px);line-height:1.15;letter-spacing:-.025em;
   margin:0;color:var(--void-ink);
+  overflow-wrap:break-word;word-break:break-word;
 }
 
 /* ── Stage ── */
 .stage {
   grid-area: stage;
-  display:flex;align-items:center;justify-content:center;
-  position:relative;overflow:hidden;
-  padding:0 56px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+  padding: 20px 28px 0; /* bottom set dynamically by fitFrame() */
+  background: #2C2620;
 }
 .stage__shimmer {
-  position:absolute;inset:0;
-  background:linear-gradient(135deg,var(--void-3) 25%,var(--void-2) 50%,var(--void-3) 75%);
-  background-size:200% 200%;
-  animation:shimmer 1.6s ease infinite;
-  transition:opacity .4s;
-  pointer-events:none;border-radius:var(--r-lg);
-  margin:0 56px;
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, #2e2620 25%, #3a2e24 50%, #2e2620 75%);
+  background-size: 200% 200%;
+  animation: shimmer 1.8s ease infinite;
+  transition: opacity .4s;
+  pointer-events: none;
 }
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
-.asset {
-  border-radius:var(--r-lg);
-  box-shadow:0 32px 80px rgba(0,0,0,0.6),0 0 0 1px var(--void-line-2);
-  animation:assetIn .25s var(--ease);
-  flex-shrink:0;
+/* Frame container — sized by JS, matches app's asset-frame */
+.asset-wrap {
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 10px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+  background: #FFFCF4;
+  animation: assetIn .25s var(--ease);
 }
-@keyframes assetIn{from{opacity:0;transform:scale(.975)}to{opacity:1;transform:scale(1)}}
-/* iframe: width/height/zoom set by JS fitFrame() to show full design */
-.asset--frame{border:none;background:#fff;display:block;}
-/* images always fit the available space */
-.asset--img{max-width:100%;max-height:100%;object-fit:contain;}
-.asset--fallback{
-  display:flex;align-items:center;justify-content:center;
-  width:100%;height:100%;
-  font-family:'JetBrains Mono',monospace;font-size:13px;
+@keyframes assetIn { from{opacity:0;transform:scale(.975)} to{opacity:1;transform:scale(1)} }
+
+/* HTML iframe — absolutely centered, scaled by JS transform (matches app's ScaledModalIframe) */
+.asset--frame {
+  position: absolute; top: 50%; left: 50%;
+  border: none; background: #FFFCF4; display: block;
+  transform-origin: center center;
 }
-/* Asset action buttons — bottom-right corner of stage */
+/* Images fill the wrap container */
+.asset--img {
+  width: 100%; height: 100%;
+  object-fit: contain; display: block; border: none;
+}
+/* PDF embed fills the wrap */
+.asset--pdf { width: 100%; height: 100%; border: none; display: block; }
+/* Fallback link */
+.asset--fallback {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  color: var(--void-ink-2); text-decoration: none;
+}
+.asset--fallback:hover { color: var(--void-ink); }
+
+/* Asset action buttons — overlay on stage hover */
 .stage__actions {
-  position:absolute;bottom:14px;right:70px;
-  display:flex;gap:6px;align-items:center;
-  opacity:0;
-  transition:opacity .18s var(--ease);
-  z-index:4;
+  position: absolute; bottom: 14px; right: 40px;
+  display: flex; gap: 6px; align-items: center;
+  opacity: 0; transition: opacity .18s var(--ease); z-index: 4;
 }
 .stage:hover .stage__actions,
-.stage__actions:focus-within { opacity:1; }
+.stage__actions:focus-within { opacity: 1; }
 .stage__dl {
   display:inline-flex;align-items:center;gap:5px;
   background:rgba(20,17,13,0.75);
@@ -519,15 +546,14 @@ body {
 .stage__dl--ok   { background:rgba(110,127,88,.2);border-color:rgba(110,127,88,.5);color:#B9C8A4; }
 .stage__dl:disabled { cursor:wait;opacity:.5; }
 
-/* ── Bottom HUD — floating card ── */
+/* ── Bottom HUD — fixed overlay over stage bottom ── */
 .hud {
-  grid-area: hud;
-  /* Floating: sits above the stage via padding+gradient, doesn't push layout */
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
   padding: 0 16px max(20px, env(safe-area-inset-bottom));
-  /* gradient fade so stage content bleeds through above */
   background: linear-gradient(to top, var(--void) 55%, transparent 100%);
   display: flex; justify-content: center;
-  pointer-events: none; /* let clicks pass through the gradient area */
+  pointer-events: none;
   z-index: 20;
 }
 /* The actual visible card */
@@ -653,7 +679,7 @@ body {
   .hd__copy { padding: 6px 8px; }
   .prompt { padding: 4px 16px 8px; }
   .prompt__h { font-size: clamp(17px,5vw,24px); }
-  .stage { padding: 0 8px; }
+  .stage { padding: 8px 10px; }
   .hud { padding: 0 10px max(16px, env(safe-area-inset-bottom)); }
   .hud__card { border-radius: 14px; padding: 10px 12px 12px; }
   .hud__name { width: 100px; font-size: 12px; }

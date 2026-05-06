@@ -138,7 +138,7 @@
 
 .slr {
   display: grid;
-  grid-template-columns: 68px 1fr auto;
+  grid-template-columns: 68px minmax(0, 1fr) auto;
   gap: 14px;
   align-items: start;
   padding: 14px 0;

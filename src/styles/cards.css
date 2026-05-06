@@ -394,10 +394,10 @@
 }
 
 .meta-panel__actions {
-  padding: 14px 20px;
+  padding: 12px 16px 14px;
   border-top: 0.5px solid var(--line);
   display: flex;
-  gap: 6px;
+  gap: 5px;
   background: rgba(27,23,20,0.025);
   flex-shrink: 0;
 }
@@ -408,15 +408,24 @@
   border: 0.5px solid var(--line-strong);
   background: rgba(255, 253, 248, 0.7);
   color: var(--ink);
-  padding: 7px 12px;
+  padding: 7px 10px;
   border-radius: var(--r-sm);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   transition: all 0.15s var(--ease-out);
   flex: 1;
+  min-width: 0;
   justify-content: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Icon-only compact variant — doesn't stretch */
+.btn--icon {
+  flex: 0 0 auto;
+  padding: 7px 9px;
 }
 .btn:hover { background: #FFFCF4; }
 .btn--approve {
