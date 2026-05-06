@@ -64,7 +64,7 @@
       "exceptionDomain": "",
       "signingIdentity": null,
       "providerShortName": null,
-      "entitlements": null,
+      "entitlements": "entitlements.plist",
       "dmg": {
         "background": null,
         "windowSize": { "width": 660, "height": 400 },
