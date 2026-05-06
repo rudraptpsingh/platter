@@ -236,6 +236,28 @@
   z-index: 2;
 }
 
+.slideshow__sharebtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--void-line);
+  background: rgba(232, 223, 205, 0.04);
+  color: var(--void-ink-3);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s var(--ease-out), border-color 0.12s var(--ease-out), color 0.12s var(--ease-out);
+  margin-left: auto; /* push to right edge */
+}
+.slideshow__sharebtn:hover {
+  background: rgba(232, 223, 205, 0.10);
+  border-color: rgba(232, 223, 205, 0.25);
+  color: var(--void-ink);
+}
+
 .slideshow__playbtn {
   display: inline-flex;
   align-items: center;

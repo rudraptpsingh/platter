@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platter — Editorial Hero</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400;1,700&family=Inter:wght@400;500;600&display=swap');
+body {
+  font-family: "Inter", -apple-system, sans-serif;
+  background: #FFFDF7;
+  color: #1B1714;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Nav */
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 48px; height: 60px;
+  border-bottom: 1px solid rgba(27,23,20,0.08);
+  position: sticky; top: 0;
+  background: rgba(255,253,247,0.92); backdrop-filter: blur(16px); z-index: 10;
+}
+.logo { display: flex; align-items: center; gap: 9px; font-size: 16px; font-weight: 600; letter-spacing: -0.03em; color: #1B1714; }
+.logo-mark {
+  width: 27px; height: 27px; border-radius: 7px; background: #1B1714;
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-links { display: flex; gap: 28px; }
+.nav-links a { font-size: 14px; color: #8B7E6E; text-decoration: none; transition: color .15s; }
+.nav-links a:hover { color: #1B1714; }
+.nav-cta {
+  background: #C2472A; color: #FFFDF7; border: none; border-radius: 7px;
+  padding: 8px 18px; font-size: 13.5px; font-weight: 500; cursor: pointer; letter-spacing: -0.01em;
+  transition: background .15s;
+}
+.nav-cta:hover { background: #A83820; }
+
+/* Layout */
+.page {
+  max-width: 1200px; margin: 0 auto;
+  display: grid; grid-template-columns: 1fr 460px;
+  gap: 0; min-height: calc(100vh - 60px);
+}
+
+/* Left: hero text */
+.hero-text {
+  padding: 72px 64px 72px 48px;
+  display: flex; flex-direction: column; justify-content: center;
+  border-right: 1px solid rgba(27,23,20,0.07);
+}
+
+.issue-line {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 36px;
+}
+.issue-num {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+  color: #C2472A;
+}
+.issue-rule { flex: 1; height: 1px; background: rgba(27,23,20,0.12); max-width: 120px; }
+.issue-date { font-size: 10px; color: #A89880; letter-spacing: 0.05em; }
+
+h1 {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(44px, 5vw, 68px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: #1B1714;
+  margin-bottom: 24px;
+}
+h1 em {
+  font-style: italic;
+  color: #C2472A;
+}
+
+.deck {
+  font-size: 17px; color: #5A4E42; line-height: 1.7;
+  max-width: 440px; margin-bottom: 44px;
+}
+
+.actions { display: flex; gap: 10px; align-items: center; }
+.btn-dl {
+  background: #1B1714; color: #FFFDF7; border: none; border-radius: 8px;
+  padding: 13px 22px; font-size: 14px; font-weight: 500; cursor: pointer;
+  display: flex; align-items: center; gap: 7px; letter-spacing: -0.01em;
+  transition: background .15s;
+}
+.btn-dl:hover { background: #3A302A; }
+.btn-watch {
+  font-size: 14px; color: #8B7E6E; text-decoration: none; cursor: pointer;
+  background: none; border: none; padding: 13px 4px;
+  display: flex; align-items: center; gap: 6px; transition: color .15s;
+}
+.btn-watch:hover { color: #1B1714; }
+
+.byline {
+  margin-top: 52px;
+  padding-top: 28px;
+  border-top: 0.5px solid rgba(27,23,20,0.10);
+  display: flex; align-items: center; gap: 16px;
+}
+.byline-avatars { display: flex; }
+.bav {
+  width: 30px; height: 30px; border-radius: 50%; border: 2px solid #FFFDF7;
+  margin-left: -8px; font-size: 12px; font-weight: 600; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.bav:first-child { margin-left: 0; }
+.byline-text { font-size: 12.5px; color: #8B7E6E; line-height: 1.5; }
+.byline-text strong { color: #5A4E42; }
+
+/* Right: visual panel */
+.hero-visual {
+  background: #F5F0E8; position: relative; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px 32px;
+}
+
+/* Decorative rule marks */
+.deco-rule {
+  position: absolute;
+  background: rgba(27,23,20,0.06);
+}
+.deco-rule--h { height: 1px; left: 0; right: 0; }
+.deco-rule--v { width: 1px; top: 0; bottom: 0; }
+
+/* Flow diagram */
+.flow {
+  display: flex; flex-direction: column; align-items: stretch; gap: 0; width: 100%;
+  max-width: 340px; position: relative; z-index: 1;
+}
+.flow-step {
+  background: #FFFDF7; border: 0.5px solid rgba(27,23,20,0.12);
+  border-radius: 10px; padding: 14px 16px;
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.flow-step + .flow-step { margin-top: 0; }
+.flow-connector {
+  display: flex; align-items: center; justify-content: center;
+  height: 28px;
+}
+.flow-connector svg { opacity: 0.3; }
+.step-icon {
+  width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.step-body { flex: 1; min-width: 0; }
+.step-label { font-size: 11px; font-weight: 600; color: #1B1714; margin-bottom: 2px; }
+.step-sub { font-size: 10.5px; color: #8B7E6E; line-height: 1.4; }
+.step-tag {
+  margin-top: 6px; display: inline-block;
+  font-size: 9.5px; font-family: "SF Mono", monospace; letter-spacing: 0.04em;
+  background: rgba(27,23,20,0.06); color: #5A4E42;
+  padding: 2px 7px; border-radius: 3px;
+}
+.step-tag--red { background: rgba(194,71,42,0.10); color: #C2472A; }
+.step-tag--green { background: rgba(74,103,65,0.12); color: #4A6741; }
+
+.caption {
+  position: absolute; bottom: 20px;
+  font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: rgba(27,23,20,0.3); text-align: center;
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <rect x="2" y="2" width="4.5" height="4.5" rx="1" fill="white"/>
+        <rect x="7.5" y="2" width="4.5" height="4.5" rx="1" fill="white" opacity=".6"/>
+        <rect x="2" y="7.5" width="4.5" height="4.5" rx="1" fill="white" opacity=".6"/>
+        <rect x="7.5" y="7.5" width="4.5" height="4.5" rx="1" fill="white" opacity=".3"/>
+      </svg>
+    </div>
+    platter
+  </div>
+  <div class="nav-links">
+    <a href="#">How it works</a>
+    <a href="#">Changelog</a>
+    <a href="#">Docs</a>
+  </div>
+  <button class="nav-cta">Download free →</button>
+</nav>
+
+<div class="page">
+  <div class="hero-text">
+    <div class="issue-line">
+      <span class="issue-num">v0.5 · public beta</span>
+      <div class="issue-rule"></div>
+      <span class="issue-date">May 2026</span>
+    </div>
+
+    <h1>Keep the human<br>in the <em>loop.</em></h1>
+
+    <p class="deck">
+      Claude can generate a hundred mockups before you've had your coffee.
+      Platter makes sure you see each one, approve or reject it,
+      before the agent takes another step.
+    </p>
+
+    <div class="actions">
+      <button class="btn-dl">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1.5v8.5m0 0L4 7m3 3l3-3M2.5 12.5h9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Download for macOS
+      </button>
+      <button class="btn-watch">Watch 90s demo →</button>
+    </div>
+
+    <div class="byline">
+      <div class="byline-avatars">
+        <div class="bav" style="background:#6366F1">R</div>
+        <div class="bav" style="background:#EC4899">M</div>
+        <div class="bav" style="background:#F59E0B">A</div>
+        <div class="bav" style="background:#10B981">K</div>
+      </div>
+      <div class="byline-text">
+        <strong>240+ engineers</strong> reviewing faster<br>with Claude + Platter
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-visual">
+    <div class="deco-rule deco-rule--h" style="top:33%"></div>
+    <div class="deco-rule deco-rule--h" style="top:66%"></div>
+    <div class="deco-rule deco-rule--v" style="left:50%"></div>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="step-icon" style="background:rgba(99,102,241,0.10)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="3" width="12" height="10" rx="2" stroke="#6366F1" stroke-width="1.3"/>
+            <path d="M5 7h6M5 9.5h4" stroke="#6366F1" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="step-body">
+          <div class="step-label">Agent creates mockup</div>
+          <div class="step-sub">Claude writes hero-v3.html to your mockups folder</div>
+          <span class="step-tag">present_mockups()</span>
+        </div>
+      </div>
+
+      <div class="flow-connector">
+        <svg width="12" height="18" viewBox="0 0 12 18" fill="none">
+          <path d="M6 0v14M6 14l-4-4M6 14l4-4" stroke="#1B1714" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <div class="flow-step" style="background:#FFFDF7;border-color:rgba(194,71,42,0.25)">
+        <div class="step-icon" style="background:rgba(194,71,42,0.10)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="5.5" stroke="#C2472A" stroke-width="1.3"/>
+            <path d="M8 5v3.5" stroke="#C2472A" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="8" cy="11" r=".7" fill="#C2472A"/>
+          </svg>
+        </div>
+        <div class="step-body">
+          <div class="step-label" style="color:#C2472A">Agent pauses · awaiting you</div>
+          <div class="step-sub">Platter surfaces the file instantly. Claude waits.</div>
+          <span class="step-tag step-tag--red">blocking</span>
+        </div>
+      </div>
+
+      <div class="flow-connector">
+        <svg width="12" height="18" viewBox="0 0 12 18" fill="none">
+          <path d="M6 0v14M6 14l-4-4M6 14l4-4" stroke="#1B1714" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-icon" style="background:rgba(74,103,65,0.10)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8l3.5 3.5L13 4.5" stroke="#4A6741" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="step-body">
+          <div class="step-label">You decide · agent continues</div>
+          <div class="step-sub">Approve with a note, reject with a reason. Decision flows back.</div>
+          <span class="step-tag step-tag--green">approved · "use this palette"</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="caption">MCP-native · local · private</div>
+  </div>
+</div>
+
+</body>
+</html>

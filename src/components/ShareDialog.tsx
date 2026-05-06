@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
 import type { FileRow } from "../types";
-import { createShare, rememberShare, type CreateShareResult } from "../lib/share";
+import {
+  createShare,
+  createShareCollection,
+  rememberShare,
+  shareKindFor,
+  type CreateShareResult,
+} from "../lib/share";
 import { useToast } from "./Toast";
+import { basename } from "../lib/api";
 
 import "../styles/share-dialog.css";
 
 type Props = {
   file: FileRow;
+  /** Siblings or slideshow files — enables the slideshow-mode toggle when > 1 shareable item. */
+  files?: FileRow[];
   onClose: () => void;
 };
 
@@ -16,7 +25,12 @@ const EXPIRY_OPTIONS: Array<{ label: string; seconds: number }> = [
   { label: "30 days", seconds: 30 * 24 * 60 * 60 },
 ];
 
-export function ShareDialog({ file, onClose }: Props) {
+export function ShareDialog({ file, files, onClose }: Props) {
+  // Files that can actually be shared (filter out unsupported kinds)
+  const shareableFiles = (files ?? []).filter((f) => shareKindFor(f.path) !== null);
+  const canSlideshow = shareableFiles.length > 1;
+
+  const [mode, setMode] = useState<"single" | "slideshow">(canSlideshow ? "slideshow" : "single");
   const [prompt, setPrompt] = useState(`What do you think about ${file.path.split("/").pop()}?`);
   const [expiry, setExpiry] = useState(EXPIRY_OPTIONS[1]); // default 7 days
   const [working, setWorking] = useState(false);
@@ -36,15 +50,26 @@ export function ShareDialog({ file, onClose }: Props) {
     setWorking(true);
     setError(null);
     try {
-      const r = await createShare({
-        path: file.path,
-        prompt,
-        expires_seconds: expiry.seconds,
-      });
-      // Remember the local path for this share_id so reviewer decisions
-      // can carry back to the local file via the background poll.
-      rememberShare(r.id, file.path);
-      setResult(r);
+      if (mode === "slideshow") {
+        const r = await createShareCollection({
+          paths: shareableFiles.map((f) => f.path),
+          prompt,
+          expires_seconds: expiry.seconds,
+        });
+        // Map each item's share_id back to its local path so decisions carry over.
+        r.item_ids.forEach((itemId, i) => {
+          if (shareableFiles[i]) rememberShare(itemId, shareableFiles[i].path);
+        });
+        setResult(r);
+      } else {
+        const r = await createShare({
+          path: file.path,
+          prompt,
+          expires_seconds: expiry.seconds,
+        });
+        rememberShare(r.id, file.path);
+        setResult(r);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -66,7 +91,10 @@ export function ShareDialog({ file, onClose }: Props) {
           <div>
             <div className="share-card__eyebrow">★ public review link</div>
             <h2 className="share-card__title">
-              Share <em>{file.path.split("/").pop()}</em>
+              {mode === "slideshow"
+                ? <>Share <em>{shareableFiles.length} files</em></>
+                : <>Share <em>{basename(file.path)}</em></>
+              }
             </h2>
           </div>
           <button className="share-card__close" onClick={onClose} title="Close (Esc)">
@@ -78,9 +106,32 @@ export function ShareDialog({ file, onClose }: Props) {
 
         {!result && (
           <>
+            {canSlideshow && (
+              <div className="share-mode-toggle">
+                <button
+                  className={`share-mode-btn ${mode === "single" ? "share-mode-btn--active" : ""}`}
+                  onClick={() => setMode("single")}
+                >
+                  This file
+                </button>
+                <button
+                  className={`share-mode-btn ${mode === "slideshow" ? "share-mode-btn--active" : ""}`}
+                  onClick={() => setMode("slideshow")}
+                >
+                  <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+                    <rect x="1.5" y="3" width="11" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+                    <path d="M5.5 6L8.5 7.5L5.5 9V6Z" fill="currentColor"/>
+                  </svg>
+                  Slideshow · {shareableFiles.length}
+                </button>
+              </div>
+            )}
+
             <div className="share-card__lede">
-              Generates a link anyone can open — no platter required. Approve / Reject / Iterate
-              decisions land in your <em>Shared links</em> pane in Settings.
+              {mode === "slideshow"
+                ? <>Creates one link showing all {shareableFiles.length} files as a slideshow. Reviewers can approve or reject each slide — decisions sync back here.</>
+                : <>Generates a link anyone can open — no platter required. Approve / Reject / Iterate decisions land in your <em>Shared links</em> pane in Settings.</>
+              }
             </div>
 
             <div className="share-field">
@@ -120,7 +171,10 @@ export function ShareDialog({ file, onClose }: Props) {
                 Cancel
               </button>
               <button className="share-btn share-btn--primary" onClick={submit} disabled={working}>
-                {working ? "Creating link…" : "Create link"}
+                {working
+                  ? "Creating link…"
+                  : mode === "slideshow" ? "Create slideshow link" : "Create link"
+                }
                 {!working && (
                   <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
                     <path
@@ -143,7 +197,10 @@ export function ShareDialog({ file, onClose }: Props) {
               <div className="share-card__success-mark">✓</div>
               <h3 className="share-card__success-h">Link is ready.</h3>
               <p className="share-card__success-sub">
-                Send this to your reviewer. Decisions show up in Settings → Shared links.
+                {mode === "slideshow"
+                  ? `Send this to share all ${shareableFiles.length} files as a slideshow. Per-slide decisions sync back here.`
+                  : "Send this to your reviewer. Decisions show up in Settings → Shared links."
+                }
               </p>
             </div>
 

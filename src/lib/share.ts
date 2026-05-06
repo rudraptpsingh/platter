@@ -47,6 +47,10 @@ export type CreateShareResult = {
   created_at: number;
 };
 
+export type CreateShareCollectionResult = CreateShareResult & {
+  item_ids: string[];
+};
+
 const SHARE_KIND_BY_EXT = new Set<ShareKind>([
   "html", "htm", "png", "jpg", "jpeg", "gif", "svg", "webp", "pdf", "md",
 ]);
@@ -54,6 +58,45 @@ const SHARE_KIND_BY_EXT = new Set<ShareKind>([
 export function shareKindFor(path: string): ShareKind | null {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
   return SHARE_KIND_BY_EXT.has(ext as ShareKind) ? (ext as ShareKind) : null;
+}
+
+/**
+ * Upload multiple files as a collection and return a single slideshow URL.
+ * Each item gets its own share_id so per-item decisions carry back locally.
+ */
+export async function createShareCollection(opts: {
+  paths: string[];
+  prompt?: string;
+  expires_seconds?: number;
+}): Promise<CreateShareCollectionResult> {
+  const deviceId = await readDeviceId();
+
+  const items = await Promise.all(
+    opts.paths.map(async (path) => {
+      const filename = path.split("/").pop() ?? "asset";
+      const kind = shareKindFor(path);
+      if (!kind) throw new Error(`Unsupported file kind: .${path.split(".").pop()}`);
+      const bytes = await invoke<number[]>("read_file_bytes", { path });
+      const u8 = Uint8Array.from(bytes);
+      return { filename, kind, content_b64: uint8ToBase64(u8) };
+    })
+  );
+
+  const r = await fetch(`${BASE}/api/share/create-collection`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      device_id: deviceId,
+      items,
+      prompt: opts.prompt?.trim() || undefined,
+      expires_seconds: opts.expires_seconds,
+    }),
+  });
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(`Share failed (${r.status}): ${j.error ?? r.statusText}`);
+  }
+  return (await r.json()) as CreateShareCollectionResult;
 }
 
 /**

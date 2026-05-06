@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platter — Dark Hero</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  background: #080808;
+  color: #EDEDED;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Glow orbs */
+.orb {
+  position: fixed; border-radius: 50%;
+  filter: blur(120px); opacity: 0.35; pointer-events: none; z-index: 0;
+}
+.orb-1 { width: 600px; height: 600px; background: #6D28D9; top: -200px; left: -100px; }
+.orb-2 { width: 500px; height: 500px; background: #0EA5E9; top: 100px; right: -100px; }
+.orb-3 { width: 400px; height: 400px; background: #EC4899; bottom: 0; left: 30%; }
+
+/* Nav */
+nav {
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 48px; height: 64px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: rgba(8,8,8,0.8);
+  backdrop-filter: blur(20px);
+}
+.logo { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 600; letter-spacing: -0.03em; }
+.logo-mark {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: linear-gradient(135deg, #7C3AED, #3B82F6);
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-links { display: flex; gap: 28px; }
+.nav-links a { font-size: 14px; color: rgba(255,255,255,0.5); text-decoration: none; transition: color .15s; }
+.nav-links a:hover { color: #fff; }
+.nav-cta {
+  background: linear-gradient(135deg, #7C3AED, #2563EB);
+  color: #fff; border: none; border-radius: 8px;
+  padding: 9px 20px; font-size: 14px; font-weight: 500; cursor: pointer;
+  transition: opacity .15s;
+}
+.nav-cta:hover { opacity: .85; }
+
+/* Hero */
+.hero {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; padding: 110px 24px 90px;
+}
+
+/* Glowing border badge */
+.badge-wrap {
+  position: relative; margin-bottom: 32px;
+}
+.badge-glow {
+  position: absolute; inset: -1px; border-radius: 100px;
+  background: linear-gradient(135deg, #7C3AED, #2563EB, #EC4899);
+  filter: blur(4px); opacity: .6;
+}
+.badge {
+  position: relative;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 100px; padding: 5px 14px;
+  font-size: 12px; color: rgba(255,255,255,0.6); letter-spacing: 0.05em;
+  text-transform: uppercase; font-weight: 500;
+}
+
+h1 {
+  font-size: clamp(48px, 7vw, 86px);
+  font-weight: 800; letter-spacing: -0.045em; line-height: 1.0;
+  margin-bottom: 22px; max-width: 900px;
+  background: linear-gradient(180deg, #FFFFFF 30%, rgba(255,255,255,0.45) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+
+.lede {
+  font-size: 19px; color: rgba(255,255,255,0.45); line-height: 1.65;
+  max-width: 520px; margin: 0 auto 44px;
+}
+.lede strong { color: rgba(255,255,255,0.75); }
+
+.actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.btn-primary {
+  background: linear-gradient(135deg, #7C3AED, #2563EB);
+  color: #fff; border: none; border-radius: 10px;
+  padding: 14px 28px; font-size: 15px; font-weight: 600; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 0 24px rgba(124,58,237,0.4);
+  transition: box-shadow .2s, transform .1s;
+}
+.btn-primary:hover { box-shadow: 0 0 40px rgba(124,58,237,0.6); transform: translateY(-1px); }
+.btn-ghost {
+  background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.7);
+  border: 1px solid rgba(255,255,255,0.10); border-radius: 10px;
+  padding: 14px 28px; font-size: 15px; font-weight: 500; cursor: pointer;
+  transition: background .15s;
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
+/* Terminal card */
+.terminal-wrap {
+  position: relative; z-index: 1;
+  max-width: 700px; margin: 70px auto 0; padding: 0 24px;
+}
+.terminal {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px; overflow: hidden;
+  box-shadow: 0 0 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.term-bar {
+  background: rgba(255,255,255,0.03); border-bottom: 1px solid rgba(255,255,255,0.06);
+  height: 38px; display: flex; align-items: center; padding: 0 14px; gap: 7px;
+}
+.tdot { width: 11px; height: 11px; border-radius: 50%; }
+.term-body { padding: 22px 26px; font-family: "SF Mono", "Menlo", monospace; font-size: 13px; line-height: 1.9; }
+.t-dim { color: rgba(255,255,255,0.25); }
+.t-comment { color: #6B7280; }
+.t-green { color: #34D399; }
+.t-purple { color: #A78BFA; }
+.t-blue { color: #60A5FA; }
+.t-white { color: rgba(255,255,255,0.8); }
+.t-yellow { color: #FCD34D; }
+.cursor { display: inline-block; width: 8px; height: 14px; background: #A78BFA; vertical-align: text-bottom; animation: blink 1.2s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Stats */
+.stats {
+  position: relative; z-index: 1;
+  display: flex; justify-content: center; gap: 0;
+  max-width: 600px; margin: 60px auto 0; padding: 0 24px;
+}
+.stat {
+  flex: 1; text-align: center; padding: 28px 24px;
+  border: 1px solid rgba(255,255,255,0.06); margin: -1px;
+}
+.stat:first-child { border-radius: 12px 0 0 12px; }
+.stat:last-child { border-radius: 0 12px 12px 0; }
+.stat-num {
+  font-size: 36px; font-weight: 800; letter-spacing: -0.04em;
+  background: linear-gradient(135deg, #A78BFA, #60A5FA);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 4px;
+}
+.stat-label { font-size: 13px; color: rgba(255,255,255,0.35); }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<nav>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <rect x="2" y="2" width="4.5" height="4.5" rx="1" fill="white"/>
+        <rect x="7.5" y="2" width="4.5" height="4.5" rx="1" fill="white" opacity=".6"/>
+        <rect x="2" y="7.5" width="4.5" height="4.5" rx="1" fill="white" opacity=".6"/>
+        <rect x="7.5" y="7.5" width="4.5" height="4.5" rx="1" fill="white" opacity=".3"/>
+      </svg>
+    </div>
+    platter
+  </div>
+  <div class="nav-links">
+    <a href="#">Features</a>
+    <a href="#">Docs</a>
+    <a href="#">GitHub</a>
+  </div>
+  <button class="nav-cta">Get started free</button>
+</nav>
+
+<section class="hero">
+  <div class="badge-wrap">
+    <div class="badge-glow"></div>
+    <div class="badge">Backed by Claude · MCP-native</div>
+  </div>
+  <h1>Human review,<br>wired into the loop.</h1>
+  <p class="lede">
+    When Claude builds, <strong>Platter intercepts</strong>.
+    Every mockup, screenshot, and artifact surfaces for your sign-off
+    before the agent takes the next step.
+  </p>
+  <div class="actions">
+    <button class="btn-primary">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+        <path d="M7 1.5v8.5m0 0L4 7m3 3l3-3M2.5 12.5h9" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Download for macOS
+    </button>
+    <button class="btn-ghost">Watch demo →</button>
+  </div>
+</section>
+
+<div class="terminal-wrap">
+  <div class="terminal">
+    <div class="term-bar">
+      <div class="tdot" style="background:#FF5F57"></div>
+      <div class="tdot" style="background:#FEBC2E"></div>
+      <div class="tdot" style="background:#28C840"></div>
+      <span style="flex:1;text-align:center;font-size:11px;color:rgba(255,255,255,0.2);font-family:monospace">claude — platter MCP</span>
+    </div>
+    <div class="term-body">
+      <div><span class="t-dim">$</span> <span class="t-white">claude code "redesign the onboarding flow"</span></div>
+      <div><span class="t-comment">→ Analyzing current onboarding…</span></div>
+      <div><span class="t-comment">→ Generating 3 variant mockups…</span></div>
+      <div><span class="t-green">✓</span> <span class="t-white">Created mockups/onboarding-v1.html</span></div>
+      <div><span class="t-green">✓</span> <span class="t-white">Created mockups/onboarding-v2.html</span></div>
+      <div><span class="t-green">✓</span> <span class="t-white">Created mockups/onboarding-v3.html</span></div>
+      <div><span class="t-purple">◈</span> <span class="t-yellow">present_mockups()</span> <span class="t-dim">→ blocking for review…</span></div>
+      <div style="margin-top:4px;padding:10px 14px;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:8px">
+        <div style="color:#A78BFA;font-size:11px;margin-bottom:4px">⬡ PLATTER · review request</div>
+        <div style="color:rgba(255,255,255,0.5);font-size:11px">"Pick the onboarding direction for v2.0"</div>
+        <div style="margin-top:6px;color:#34D399;font-size:11px">✓ User approved v1 · note: "use this palette"</div>
+      </div>
+      <div><span class="t-green">✓</span> <span class="t-white">Decision received. Continuing with v1…</span></div>
+      <div><span class="t-dim">$</span> <span class="cursor"></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-num">3s</div>
+    <div class="stat-label">avg. review time</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">∞</div>
+    <div class="stat-label">agents supported</div>
+  </div>
+  <div class="stat">
+    <div class="stat-num">100%</div>
+    <div class="stat-label">local · private</div>
+  </div>
+</div>
+
+</body>
+</html>

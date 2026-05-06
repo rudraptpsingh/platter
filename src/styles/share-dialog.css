@@ -73,6 +73,40 @@
 }
 .share-card__close:hover { background: rgba(27, 23, 20, 0.12); color: var(--ink); }
 
+/* Mode toggle: single file vs slideshow */
+.share-mode-toggle {
+  display: flex;
+  gap: 4px;
+  background: rgba(27, 23, 20, 0.04);
+  border-radius: var(--r);
+  padding: 3px;
+  margin-bottom: 18px;
+}
+.share-mode-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 7px 10px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-3);
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--r) - 2px);
+  cursor: pointer;
+  transition: all 0.15s var(--ease-out);
+  letter-spacing: -0.01em;
+}
+.share-mode-btn:hover { color: var(--ink-2); }
+.share-mode-btn--active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(27, 23, 20, 0.10), 0 0 0 0.5px rgba(27, 23, 20, 0.08);
+}
+
 .share-card__lede {
   font-size: 13.5px;
   line-height: 1.6;

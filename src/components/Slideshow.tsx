@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { FileRow } from "../types";
 import { basename, formatSize, relativeTime } from "../lib/api";
 import { getBlobUrl } from "../lib/blobs";
+import { ShareDialog } from "./ShareDialog";
 
 import "../styles/slideshow.css";
 
@@ -16,6 +17,7 @@ export function Slideshow({ files, startIndex = 0, onClose }: Props) {
   const [idx, setIdx] = useState(Math.max(0, Math.min(startIndex, files.length - 1)));
   const [autoPlay, setAutoPlay] = useState(false);
   const [autoSeconds, setAutoSeconds] = useState(4);
+  const [showShare, setShowShare] = useState(false);
 
   const total = files.length;
   const file = files[idx];
@@ -55,6 +57,11 @@ export function Slideshow({ files, startIndex = 0, onClose }: Props) {
       if (e.key.toLowerCase() === "p") {
         e.preventDefault();
         setAutoPlay((v) => !v);
+        return;
+      }
+      if (e.key.toLowerCase() === "s" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setShowShare((v) => !v);
         return;
       }
       if (e.key.toLowerCase() === "f") {
@@ -144,7 +151,28 @@ export function Slideshow({ files, startIndex = 0, onClose }: Props) {
 
       <ProgressTrack files={files} idx={idx} onJump={(i) => setIdx(i)} />
 
+      {showShare && (
+        <ShareDialog
+          file={files[idx]}
+          files={files}
+          onClose={() => setShowShare(false)}
+        />
+      )}
+
       <footer className="slideshow__foot">
+        <button
+          className="slideshow__sharebtn"
+          onClick={() => setShowShare(true)}
+          title="Share as slideshow link (S)"
+        >
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+            <circle cx="11" cy="3" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
+            <circle cx="11" cy="11" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
+            <circle cx="3" cy="7" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
+            <path d="M4.4 6.2L9.7 3.7M4.4 7.8L9.7 10.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+          Share
+        </button>
         <button
           className={`slideshow__playbtn ${autoPlay ? "slideshow__playbtn--on" : ""}`}
           onClick={() => setAutoPlay((v) => !v)}

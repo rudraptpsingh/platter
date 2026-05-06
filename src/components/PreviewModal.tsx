@@ -329,7 +329,7 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
         </aside>
       </div>
 
-      {showShare && <ShareDialog file={file} onClose={() => setShowShare(false)} />}
+      {showShare && <ShareDialog file={file} files={siblings} onClose={() => setShowShare(false)} />}
     </div>
   );
 }
