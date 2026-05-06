@@ -1,6 +1,11 @@
 {
   "version": "0.5.0",
   "notes": "Share links for async review, web review page with full-fidelity preview, GitHub auth for reviewers, approve/reject single-file fix.",
-  "pub_date": "2026-05-06T00:00:00Z",
-  "platforms": {}
+  "pub_date": "2026-05-06T10:31:00Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "",
+      "url": "https://github.com/rudraptpsingh/platter/releases/download/v0.5.0/platter_0.5.0_aarch64.dmg"
+    }
+  }
 }
