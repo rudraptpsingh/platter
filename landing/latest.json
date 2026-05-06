@@ -1,6 +1,6 @@
 {
-  "version": "0.4.0",
-  "notes": "Initial published manifest. The first signed release will overwrite this via the GitHub Actions workflow on tag push.",
-  "pub_date": "2026-05-05T07:00:00Z",
+  "version": "0.5.0",
+  "notes": "Share links for async review, web review page with full-fidelity preview, GitHub auth for reviewers, approve/reject single-file fix.",
+  "pub_date": "2026-05-06T00:00:00Z",
   "platforms": {}
 }
