@@ -47,7 +47,7 @@
           <em>Claude Code</em> is missing.
         </h1>
         <p class="hero__lede">
-          Agents make mockups, screenshots, PDFs — dozens a day. <strong>Platter watches where they land</strong> and surfaces them in a Pinterest-style gallery on your Mac. When Claude wants your call, it pauses and asks. <strong>Three keystrokes</strong>. Work continues.
+          Agents make mockups, screenshots, PDFs — dozens a day. <strong>Platter watches where they land</strong> and surfaces them in a Pinterest-style gallery on your Mac. When Claude wants your call, it pauses and asks. <strong>Three keystrokes</strong>. Or press <kbd>S</kbd> to send a link — stakeholders review in their browser, decision syncs back while you sleep.
         </p>
         <div class="hero__ctas">
           <a class="btn btn--primary" href="https://github.com/rudraptpsingh/platter/releases" target="_blank" rel="noreferrer">
@@ -64,7 +64,7 @@
           </a>
         </div>
         <div class="hero__caption">
-          <span>v0.4</span><span class="dot"></span><span>macOS 11+</span><span class="dot"></span><span>auto-updating</span><span class="dot"></span><span>open source · free</span>
+          <span>v0.5</span><span class="dot"></span><span>macOS 11+</span><span class="dot"></span><span>auto-updating</span><span class="dot"></span><span>open source · free</span>
         </div>
       </div>
 
@@ -89,7 +89,7 @@
   <div class="container">
     <div class="section-head">
       <span class="eyebrow">how it works</span>
-      <h2 class="h2">Three pieces. One loop.</h2>
+      <h2 class="h2">Four steps. One loop.</h2>
     </div>
     <div class="three-col">
       <article class="step">
@@ -106,6 +106,11 @@
         <div class="step__num">03</div>
         <h3 class="step__h"><em>Decide</em> when Claude asks</h3>
         <p>The MCP server lets Claude call <code>present_mockups()</code> mid-session. The call blocks. A modal pops on your Mac. <kbd>A</kbd> approve, <kbd>R</kbd> reject, <kbd>1</kbd>–<kbd>9</kbd> pick. Decision flows back. Done.</p>
+      </article>
+      <article class="step">
+        <div class="step__num">04</div>
+        <h3 class="step__h"><em>Share</em> for remote sign-off</h3>
+        <p>Press <kbd>S</kbd> in any preview to generate a public link. Stakeholders open it in their browser, see the asset at full fidelity, and approve or reject. The verdict syncs back automatically.</p>
       </article>
     </div>
   </div>
@@ -245,6 +250,10 @@
       <div class="tool">
         <div class="tool__name">present_mockups</div>
         <div class="tool__desc">Block until the human approves, rejects, ranks, or picks one. The headline tool.</div>
+      </div>
+      <div class="tool">
+        <div class="tool__name">create_share</div>
+        <div class="tool__desc">Generate a public review link for async stakeholder sign-off. Decisions flow back into the session.</div>
       </div>
       <div class="tool">
         <div class="tool__name">record_decision</div>
