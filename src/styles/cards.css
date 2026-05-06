@@ -51,14 +51,14 @@
   display: block;
 }
 
-/* HTML thumbs render in iframe scaled */
+/* HTML thumbs render in iframe scaled to 16:10 (matches 1280×800 preview modal) */
 .card__thumb--html {
-  aspect-ratio: 4/3;
+  aspect-ratio: 16/10;
   position: relative;
 }
 .card__thumb--html iframe {
   width: 1280px;
-  height: 960px;
+  height: 800px;
   transform-origin: top left;
   pointer-events: none;
 }

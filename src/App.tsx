@@ -1013,6 +1013,16 @@ function GitHubFooter({
   );
 }
 
+function cleanPathParts(path: string): string[] {
+  const normalized = path.replace(/\/Users\/[^/]+/, "~");
+  const parts = normalized.split("/").filter(Boolean);
+  const idx = parts.indexOf(".claude");
+  if (idx !== -1 && parts[idx + 1] === "worktrees") {
+    parts.splice(idx, 3);
+  }
+  return parts;
+}
+
 function Toolbar({
   view,
   activePath,
@@ -1047,8 +1057,7 @@ function Toolbar({
   onPlaySlideshow?: () => void;
   decisionsFilter: DecisionsFilter;
 }) {
-  const breadcrumb = activePath ? activePath.replace(/\/Users\/[^/]+/, "~") : null;
-  const parts = breadcrumb?.split("/").filter(Boolean) ?? [];
+  const parts = activePath ? cleanPathParts(activePath) : [];
 
   let leadingTitle: React.ReactNode;
   let leadingSub: string;
@@ -1066,14 +1075,16 @@ function Toolbar({
     leadingTitle = <span className="crumb__current">{label}</span>;
     leadingSub = `${stats.total} decision${stats.total === 1 ? "" : "s"}`;
   } else if (parts.length > 0) {
+    // Show at most 1 parent segment before the current dir — keeps the breadcrumb compact
+    const parentPart = parts.length > 1 ? parts[parts.length - 2] : null;
     leadingTitle = (
       <>
-        {parts.slice(0, -1).map((p, i) => (
-          <span key={i} style={{ display: "inline-flex", alignItems: "center" }}>
-            <span style={{ color: "var(--ink-3)", fontSize: 13, fontWeight: 400 }}>{p}</span>
+        {parentPart && (
+          <span style={{ display: "inline-flex", alignItems: "center" }}>
+            <span style={{ color: "var(--ink-3)", fontSize: 13, fontWeight: 400 }}>{parentPart}</span>
             <span className="crumb__sep" style={{ margin: "0 3px" }}>/</span>
           </span>
-        ))}
+        )}
         <span className="crumb__current">{parts[parts.length - 1]}</span>
       </>
     );
@@ -1151,6 +1162,7 @@ function Toolbar({
         </div>
         <span className="filter-divider" />
         <div className="filterbar">
+          {(counts.decisions.approved > 0 || filterDecision === "approved") && (
           <button
             className={`pill pill--decision ${filterDecision === "approved" ? "pill--active" : ""}`}
             onClick={() => setFilterDecision(filterDecision === "approved" ? "all" : "approved")}
@@ -1162,6 +1174,8 @@ function Toolbar({
             approved
             <span className="pill__count">{counts.decisions.approved}</span>
           </button>
+          )}
+          {(counts.decisions.rejected > 0 || filterDecision === "rejected") && (
           <button
             className={`pill pill--decision ${filterDecision === "rejected" ? "pill--active" : ""}`}
             onClick={() => setFilterDecision(filterDecision === "rejected" ? "all" : "rejected")}
@@ -1173,6 +1187,8 @@ function Toolbar({
             rejected
             <span className="pill__count">{counts.decisions.rejected}</span>
           </button>
+          )}
+          {(counts.decisions.undecided > 0 || filterDecision === "undecided") && (
           <button
             className={`pill pill--decision ${filterDecision === "undecided" ? "pill--active" : ""}`}
             onClick={() =>
@@ -1185,6 +1201,7 @@ function Toolbar({
             undecided
             <span className="pill__count">{counts.decisions.undecided}</span>
           </button>
+          )}
         </div>
       </div>
     </div>

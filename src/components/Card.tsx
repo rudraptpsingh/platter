@@ -167,18 +167,25 @@ function ImageThumb({ path }: { path: string }) {
 function HtmlThumb({ path }: { path: string }) {
   const [ref, visible] = useLazyVisible<HTMLDivElement>();
   const [url, setUrl] = useState<string | null>(null);
+  const [scale, setScale] = useState(0.25);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => { const w = el.clientWidth; if (w > 0) setScale(w / 1280); };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  // ref.current is stable after mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!visible) return;
     let cancelled = false;
-    getBlobUrl(path)
-      .then((u) => {
-        if (!cancelled) setUrl(u);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    getBlobUrl(path).then((u) => { if (!cancelled) setUrl(u); }).catch(() => {});
+    return () => { cancelled = true; };
   }, [path, visible]);
 
   return (
@@ -187,7 +194,7 @@ function HtmlThumb({ path }: { path: string }) {
         <iframe
           src={url}
           loading="lazy"
-          style={{ transform: "scale(0.234)" }}
+          style={{ transform: `scale(${scale})` }}
         />
       )}
     </div>
@@ -220,7 +227,8 @@ function MdThumb({ path }: { path: string }) {
 
 function niceFolderLabel(folder: string): string {
   const trimmed = folder.replace(/\/Users\/[^/]+/, "~");
-  const parts = trimmed.split("/").filter(Boolean);
-  if (parts.length <= 3) return trimmed;
+  const cleaned = trimmed.replace(/\/.claude\/worktrees\/[^/]+/, "");
+  const parts = cleaned.split("/").filter(Boolean);
+  if (parts.length <= 3) return cleaned;
   return parts.slice(-3).join("/");
 }
