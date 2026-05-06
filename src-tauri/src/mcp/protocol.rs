@@ -191,7 +191,7 @@ fn open_folder_tool() -> Value {
 fn create_share_tool() -> Value {
     json!({
         "name": "create_share",
-        "description": "Upload one or more files to Platter's public sharing service and return a single URL. For multiple files, returns a collection link showing all items in a slideshow/grid — one URL, per-item approve/reject/iterate, decisions carry back automatically. Supports HTML, PNG, JPG, SVG, PDF, GIF, WebP, MD.",
+        "description": "Upload one or more files to Platter's public sharing service and return a single URL. For multiple files, returns a collection link showing all items in a slideshow/grid — one URL, per-item approve/reject/iterate, decisions carry back automatically. Supports HTML, PNG, JPG, SVG, PDF, GIF, WebP, MD. IMPORTANT: always show the returned 'url' field to the user as a clickable link in your response.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -372,6 +372,21 @@ fn handle_present_mockups(id: Value, args: Value, ctx: &McpContext) -> JsonRpcRe
     };
 
     let decision = ctx.bus.wait_with_timeout(rx, timeout, &request_id);
+
+    // Persist per-item verdicts so get_decision_history reflects the review.
+    if let Some(items) = &decision.per_item {
+        let top_note = decision.note.as_deref();
+        for item in items {
+            let verdict = match item.verdict.as_str() {
+                "yes" => "approved",
+                "no"  => "rejected",
+                _     => continue, // iterate / unknown — no verdict to store
+            };
+            let note = item.note.as_deref().or(top_note);
+            let _ = ctx.db.set_decision(&item.path, verdict, note);
+        }
+    }
+
     ok(id, tool_text_result(&decision))
 }
 
@@ -552,7 +567,16 @@ fn handle_open_folder(id: Value, args: Value, ctx: &McpContext) -> JsonRpcRespon
             let _ = crate::scanner::scan_root(&db, root.id, &root.glob);
         }
     }
-    match ctx.app_handle.emit("platter:open-folder", &path) {
+    let emit_result = ctx.app_handle.emit("platter:open-folder", &path);
+    // Bring the window to the foreground so the user sees the navigation
+    {
+        use tauri::Manager;
+        if let Some(win) = ctx.app_handle.get_webview_window("main") {
+            let _ = win.show();
+            let _ = win.set_focus();
+        }
+    }
+    match emit_result {
         Ok(()) => ok(id, tool_text_result(&json!({ "opened": path }))),
         Err(e) => err(id, -32603, &format!("emit failed: {e}")),
     }
@@ -604,7 +628,17 @@ fn handle_create_share(id: Value, args: Value, ctx: &McpContext) -> JsonRpcRespo
             .send_json(&body)
         {
             Ok(resp) => match resp.into_json::<serde_json::Value>() {
-                Ok(j) => ok(id, tool_text_result(&j)),
+                Ok(j) => {
+                    // Notify the frontend so it can persist the share_id → local path
+                    // mapping. Without this, remote decisions can't be synced back.
+                    if let Some(share_id) = j.get("id").and_then(|v| v.as_str()) {
+                        let _ = ctx.app_handle.emit(
+                            "platter:share-created",
+                            json!({ "share_id": share_id, "path": path }),
+                        );
+                    }
+                    ok(id, tool_text_result(&j))
+                }
                 Err(e) => err(id, -32603, &format!("bad response JSON: {e}")),
             },
             Err(e) => err(id, -32603, &format!("share upload failed: {e}")),
@@ -637,7 +671,19 @@ fn handle_create_share(id: Value, args: Value, ctx: &McpContext) -> JsonRpcRespo
         .send_json(&body)
     {
         Ok(resp) => match resp.into_json::<serde_json::Value>() {
-            Ok(j) => ok(id, tool_text_result(&j)),
+            Ok(j) => {
+                // For collections, associate the collection share_id with the first
+                // path so the SharedLinksView thumbnail and decision carry-back work.
+                if let Some(share_id) = j.get("id").and_then(|v| v.as_str()) {
+                    if let Some(first_path) = paths.first() {
+                        let _ = ctx.app_handle.emit(
+                            "platter:share-created",
+                            json!({ "share_id": share_id, "path": first_path }),
+                        );
+                    }
+                }
+                ok(id, tool_text_result(&j))
+            }
             Err(e) => err(id, -32603, &format!("bad response JSON: {e}")),
         },
         Err(e) => err(id, -32603, &format!("collection upload failed: {e}")),

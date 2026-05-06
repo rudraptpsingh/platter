@@ -492,3 +492,98 @@ pub fn db_path() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."));
     base.join("platter").join("platter.db")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_db() -> Db {
+        Db::open(Path::new(":memory:")).expect("open in-memory db")
+    }
+
+    // ── device_id / get_or_create logic ──────────────────────────────────────
+
+    #[test]
+    fn device_id_is_created_and_persisted() {
+        let db = temp_db();
+        // First call: nothing in DB → creates a UUID
+        assert!(db.get_setting("device_id").unwrap().is_none());
+        let id = {
+            match db.get_setting("device_id").unwrap() {
+                Some(id) => id,
+                None => {
+                    let new_id = uuid::Uuid::new_v4().to_string();
+                    db.set_setting("device_id", &new_id).unwrap();
+                    new_id
+                }
+            }
+        };
+        assert!(!id.is_empty());
+        // Second call: same value returned
+        let again = db.get_setting("device_id").unwrap().unwrap();
+        assert_eq!(id, again, "device_id must be stable across calls");
+    }
+
+    #[test]
+    fn device_id_matches_between_mcp_and_command() {
+        // Simulates the invariant our fix enforces: get_or_create_device_id()
+        // (used by the MCP create_share handler) and get_device_id command
+        // (used by the frontend) must return identical values because they
+        // both read from the same DB row.
+        let db = temp_db();
+
+        // MCP path: create on first call
+        let mcp_id = {
+            match db.get_setting("device_id").unwrap() {
+                Some(id) => id,
+                None => {
+                    let new_id = uuid::Uuid::new_v4().to_string();
+                    db.set_setting("device_id", &new_id).unwrap();
+                    new_id
+                }
+            }
+        };
+
+        // Tauri command path: read the same row
+        let cmd_id = db.get_setting("device_id").unwrap().unwrap();
+
+        assert_eq!(
+            mcp_id, cmd_id,
+            "MCP handler and Tauri command must return the same device_id"
+        );
+    }
+
+    // ── settings round-trip ───────────────────────────────────────────────────
+
+    #[test]
+    fn settings_round_trip() {
+        let db = temp_db();
+        assert!(db.get_setting("missing").unwrap().is_none());
+        db.set_setting("key", "value").unwrap();
+        assert_eq!(db.get_setting("key").unwrap().as_deref(), Some("value"));
+        db.set_setting("key", "updated").unwrap(); // upsert
+        assert_eq!(db.get_setting("key").unwrap().as_deref(), Some("updated"));
+        db.delete_setting("key").unwrap();
+        assert!(db.get_setting("key").unwrap().is_none());
+    }
+
+    // ── file decisions ────────────────────────────────────────────────────────
+
+    #[test]
+    fn decision_stored_and_queryable() {
+        let db = temp_db();
+        db.add_root("~/test/*", "test").unwrap();
+        // Upsert a file row so set_decision has something to update
+        let conn = db.conn.lock().unwrap();
+        conn.execute(
+            "INSERT OR IGNORE INTO files (path, root_id, kind, size, mtime, created_at, last_seen) VALUES (?1, 1, 'html', 0, 0, 0, 0)",
+            params!["/tmp/test.html"],
+        ).unwrap();
+        drop(conn);
+
+        db.set_decision("/tmp/test.html", "approved", Some("looks good")).unwrap();
+        let row = db.get_file("/tmp/test.html").unwrap().unwrap();
+        assert_eq!(row.decision.as_deref(), Some("approved"));
+        assert_eq!(row.decision_note.as_deref(), Some("looks good"));
+    }
+}

@@ -140,8 +140,16 @@ function ApproveRejectMode({
   }, [path]);
 
   function record(verdict: "yes" | "no") {
-    setPerItem((prev) => ({ ...prev, [path]: verdict }));
-    if (idx < total - 1) {
+    const newPerItem = { ...perItem, [path]: verdict };
+    setPerItem(newPerItem);
+    if (total === 1) {
+      // Single file — resolve immediately without requiring a separate Finish click
+      onResolve({
+        decision: verdict === "yes" ? "approved" : "rejected",
+        note: note || undefined,
+        per_item: [{ path, verdict }],
+      });
+    } else if (idx < total - 1) {
       setIdx(idx + 1);
     }
   }

@@ -27,7 +27,7 @@ import { SharedLinksView } from "./components/SharedLinksView";
 import { detectReviewSet } from "./lib/review-set";
 import * as telemetry from "./lib/telemetry";
 import { copyDecisionsMarkdown, type Window as DecisionWindow } from "./lib/decisions";
-import { applyRemoteDecisions, listShares } from "./lib/share";
+import { applyRemoteDecisions, listShares, rememberShare } from "./lib/share";
 import { invoke } from "@tauri-apps/api/core";
 
 import "./styles/tokens.css";
@@ -341,6 +341,20 @@ function AppInner() {
       unlistenPending.then((u) => u());
       unlistenResolved.then((u) => u());
     };
+  }, []);
+
+  // When the MCP create_share tool runs in Rust, it emits this event so the
+  // frontend can persist the share_id → local path mapping. Without this,
+  // applyRemoteDecisions() can't carry reviewer decisions back to local files.
+  useEffect(() => {
+    const unlisten = listen<{ share_id: string; path: string }>(
+      "platter:share-created",
+      (event) => {
+        rememberShare(event.payload.share_id, event.payload.path);
+        listShares().then((s) => setSharedCount(s.length)).catch(() => {});
+      },
+    );
+    return () => { unlisten.then((u) => u()); };
   }, []);
 
   // Re-fetch folder files when active path changes

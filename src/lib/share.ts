@@ -75,7 +75,7 @@ export async function createShare(opts: {
   const u8 = Uint8Array.from(bytes);
   const content_b64 = uint8ToBase64(u8);
 
-  const deviceId = readDeviceId();
+  const deviceId = await readDeviceId();
 
   const r = await fetch(`${BASE}/api/share/create`, {
     method: "POST",
@@ -97,7 +97,7 @@ export async function createShare(opts: {
 }
 
 export async function listShares(): Promise<ShareLink[]> {
-  const deviceId = readDeviceId();
+  const deviceId = await readDeviceId();
   const r = await fetch(`${BASE}/api/share/list?device_id=${encodeURIComponent(deviceId)}`);
   if (!r.ok) throw new Error(`List failed (${r.status})`);
   const j = (await r.json()) as { links: ShareLink[] };
@@ -232,23 +232,41 @@ function uint8ToBase64(u8: Uint8Array): string {
 }
 
 /**
- * Pull the same device_id we use for telemetry so the share-list view is
- * keyed identically. If telemetry has never been initialized we still want
- * a stable id — generate + persist one transparently.
+ * Return the stable device_id used for share ownership.
+ *
+ * Priority:
+ *  1. SQLite via the Rust `get_device_id` command — the same value the MCP
+ *     create_share handler uses, so uploads and polls are always keyed alike.
+ *  2. Cached value in localStorage (written by path 1 on first call).
+ *  3. Legacy telemetry object (for sessions that ran before this fix).
+ *  4. Fresh UUID written to localStorage.
  */
-function readDeviceId(): string {
+async function readDeviceId(): Promise<string> {
+  try {
+    const id = await invoke<string>("get_device_id");
+    if (id) {
+      // Cache locally so the synchronous lookups in older code paths can
+      // fall back to this value across page reloads.
+      localStorage.setItem("platter:share-device", id);
+      return id;
+    }
+  } catch {
+    /* not running inside Tauri — fall through */
+  }
+
+  // Non-Tauri environment fallbacks (dev browser, tests)
+  const saved = localStorage.getItem("platter:share-device");
+  if (saved) return saved;
+
   const raw = localStorage.getItem("platter:telemetry");
   if (raw) {
     try {
       const obj = JSON.parse(raw);
       if (obj && typeof obj.device_id === "string") return obj.device_id;
-    } catch {
-      /* fall through */
-    }
+    } catch { /* fall through */ }
   }
-  // Fallback — generate + persist (without forcing telemetry consent)
+
   const id = crypto.randomUUID();
   localStorage.setItem("platter:share-device", id);
-  const existing = localStorage.getItem("platter:share-device");
-  return existing ?? id;
+  return id;
 }
