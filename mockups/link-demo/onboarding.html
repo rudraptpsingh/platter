@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Onboarding — Platter</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #FFFCF4; color: #1d1d1f; min-height: 100vh;
+         display: flex; align-items: center; justify-content: center; padding: 2rem; }
+  .card { background: #fff; border-radius: 20px; padding: 3rem 2.5rem;
+          max-width: 480px; width: 100%;
+          box-shadow: 0 2px 8px rgba(0,0,0,.08), 0 0 0 0.5px rgba(0,0,0,.06); }
+  .step { font-size: .7rem; font-weight: 700; letter-spacing: .14em;
+          text-transform: uppercase; color: #c9471a; margin-bottom: 1rem; }
+  h1 { font-size: 1.9rem; font-weight: 700; letter-spacing: -.03em;
+       line-height: 1.15; margin-bottom: .75rem; }
+  .sub { font-size: .9375rem; color: #666; line-height: 1.6; margin-bottom: 2rem; }
+  .folder-pick { display: flex; align-items: center; gap: .75rem;
+                 background: #f5f5f7; border-radius: 10px; padding: .85rem 1rem;
+                 margin-bottom: 1rem; cursor: pointer; transition: background .15s; }
+  .folder-pick:hover { background: #ebebed; }
+  .folder-pick__icon { font-size: 1.25rem; }
+  .folder-pick__text { flex: 1; }
+  .folder-pick__label { font-size: .875rem; font-weight: 500; }
+  .folder-pick__path { font-size: .75rem; color: #888; font-family: monospace; }
+  .folder-pick__check { width: 20px; height: 20px; border-radius: 50%;
+                        background: #c9471a; display: flex; align-items: center;
+                        justify-content: center; color: #fff; font-size: .7rem; }
+  .btn { display: block; width: 100%; padding: .9rem;
+         background: #1d1d1f; color: #fff; border: none; border-radius: 12px;
+         font-size: 1rem; font-weight: 600; cursor: pointer; text-align: center;
+         margin-top: 1.5rem; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="step">Step 2 of 3</div>
+    <h1>Pick your mockup folder.</h1>
+    <p class="sub">Platter watches this folder and surfaces every new design for review.</p>
+
+    <div class="folder-pick">
+      <span class="folder-pick__icon">📁</span>
+      <div class="folder-pick__text">
+        <div class="folder-pick__label">~/github/myapp/mockups</div>
+        <div class="folder-pick__path">12 files · last updated 2 min ago</div>
+      </div>
+      <div class="folder-pick__check">✓</div>
+    </div>
+
+    <div class="folder-pick">
+      <span class="folder-pick__icon">📁</span>
+      <div class="folder-pick__text">
+        <div class="folder-pick__label">~/Desktop/designs</div>
+        <div class="folder-pick__path">3 files · last updated yesterday</div>
+      </div>
+    </div>
+
+    <button class="btn">Continue →</button>
+  </div>
+</body>
+</html>
