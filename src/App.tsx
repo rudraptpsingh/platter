@@ -1391,33 +1391,24 @@ function Toolbar({
       <div className="toolbar__sub">
         {view === "repo" && worktrees.length > 0 && (
           <>
-            <div className="filterbar filterbar--worktree">
-              <button
-                className={`pill pill--branch ${worktreeFilter === null ? "pill--active" : ""}`}
-                onClick={() => onWorktreeFilter(null)}
+            <div className="branch-picker">
+              <svg className="branch-picker__icon" width="12" height="12" viewBox="0 0 14 14" fill="none">
+                <circle cx="4" cy="3" r="2" stroke="currentColor" strokeWidth="1.2"/>
+                <circle cx="4" cy="11" r="2" stroke="currentColor" strokeWidth="1.2"/>
+                <circle cx="11" cy="7" r="2" stroke="currentColor" strokeWidth="1.2"/>
+                <path d="M4 5v4M4 5c0 0 3-1 4 2s3 2 3 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+              <select
+                className="branch-picker__select"
+                value={worktreeFilter ?? ""}
+                onChange={(e) => onWorktreeFilter(e.target.value === "" ? null : e.target.value)}
               >
-                <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
-                  <circle cx="4" cy="3" r="2" stroke="currentColor" strokeWidth="1.2"/>
-                  <circle cx="4" cy="11" r="2" stroke="currentColor" strokeWidth="1.2"/>
-                  <circle cx="11" cy="7" r="2" stroke="currentColor" strokeWidth="1.2"/>
-                  <path d="M4 5v4M4 5c0 0 3-1 4 2s3 2 3 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                </svg>
-                all branches
-              </button>
-              {worktrees.map((wt) => (
-                <button
-                  key={wt}
-                  className={`pill pill--branch ${worktreeFilter === wt ? "pill--active" : ""}`}
-                  onClick={() => onWorktreeFilter(worktreeFilter === wt ? null : wt)}
-                >
-                  <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
-                    <circle cx="4" cy="3" r="2" stroke="currentColor" strokeWidth="1.2"/>
-                    <circle cx="10" cy="10" r="2" stroke="currentColor" strokeWidth="1.2"/>
-                    <path d="M4 5v2a3 3 0 0 0 3 3h1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                  </svg>
-                  {wt}
-                </button>
-              ))}
+                <option value="">All branches ({worktrees.length + 1})</option>
+                <option value="__main__">main</option>
+                {worktrees.map((wt) => (
+                  <option key={wt} value={wt}>{wt}</option>
+                ))}
+              </select>
             </div>
             <span className="filter-divider" />
           </>

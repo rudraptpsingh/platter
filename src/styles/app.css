@@ -572,10 +572,44 @@
 .pill--decision { gap: 5px; }
 .pill--decision svg { width: 10px; height: 10px; flex-shrink: 0; }
 
-.pill--branch { gap: 5px; font-size: 11.5px; }
-.pill--branch svg { flex-shrink: 0; opacity: 0.6; }
-.pill--branch.pill--active svg { opacity: 1; }
-.pill--branch.pill--active::before { display: none; }
+.branch-picker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  position: relative;
+  color: var(--ink-3);
+}
+.branch-picker__icon {
+  flex-shrink: 0;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.branch-picker__select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--bg-2, rgba(0,0,0,0.04));
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 22px 3px 6px;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background-image: url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%23888' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+}
+.branch-picker__select:hover {
+  border-color: var(--ink-4, #ccc);
+}
+.branch-picker__select:focus {
+  outline: none;
+  border-color: var(--accent, #c44);
+}
 
 /* ─── Empty / loading states ─────────────────────────── */
 
