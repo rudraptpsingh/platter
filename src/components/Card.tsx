@@ -10,6 +10,9 @@ type Props = {
   comparedSlot?: 0 | 1 | null;
   onJumpToFolder?: (folder: string) => void;
   showLocation?: boolean;
+  onTrash?: (path: string) => void;
+  onRename?: (path: string) => void;
+  onReveal?: (path: string) => void;
 };
 
 export function Card({
@@ -19,15 +22,20 @@ export function Card({
   comparedSlot,
   onJumpToFolder,
   showLocation,
+  onTrash,
+  onRename,
+  onReveal,
 }: Props) {
   const isNew = (Date.now() / 1000 - file.mtime) < 600 && !file.decision;
   const folder = file.path.replace(/\/[^/]+$/, "");
   const folderLabel = niceFolderLabel(folder);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
 
   return (
     <article
       className={`card ${comparedSlot != null ? "card--cmp-selected" : ""}`}
       onClick={(e) => {
+        if (ctxMenu) { setCtxMenu(null); return; }
         // ⌘/Ctrl-click → toggle compare selection. Otherwise normal preview.
         if (e.metaKey || e.ctrlKey) {
           e.preventDefault();
@@ -35,6 +43,10 @@ export function Card({
           return;
         }
         onOpen();
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setCtxMenu({ x: e.clientX, y: e.clientY });
       }}
       title={file.path}
     >
@@ -88,7 +100,46 @@ export function Card({
           </div>
         )}
       </div>
+      {ctxMenu && (
+        <CardContextMenu
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          onClose={() => setCtxMenu(null)}
+          onOpen={() => { setCtxMenu(null); onOpen(); }}
+          onReveal={onReveal ? () => { setCtxMenu(null); onReveal(file.path); } : undefined}
+          onRename={onRename ? () => { setCtxMenu(null); onRename(file.path); } : undefined}
+          onTrash={onTrash ? () => { setCtxMenu(null); onTrash(file.path); } : undefined}
+        />
+      )}
     </article>
+  );
+}
+
+function CardContextMenu({ x, y, onClose, onOpen, onReveal, onRename, onTrash }: {
+  x: number; y: number;
+  onClose: () => void;
+  onOpen: () => void;
+  onReveal?: () => void;
+  onRename?: () => void;
+  onTrash?: () => void;
+}) {
+  useEffect(() => {
+    const dismiss = () => onClose();
+    window.addEventListener("click", dismiss);
+    window.addEventListener("contextmenu", dismiss);
+    return () => {
+      window.removeEventListener("click", dismiss);
+      window.removeEventListener("contextmenu", dismiss);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="card-ctx" style={{ left: x, top: y }} onClick={(e) => e.stopPropagation()}>
+      <button className="card-ctx__item" onClick={onOpen}>Open preview</button>
+      {onReveal && <button className="card-ctx__item" onClick={onReveal}>Reveal in Finder</button>}
+      {onRename && <button className="card-ctx__item" onClick={onRename}>Rename…</button>}
+      {onTrash && <button className="card-ctx__item card-ctx__item--danger" onClick={onTrash}>Move to Trash</button>}
+    </div>
   );
 }
 

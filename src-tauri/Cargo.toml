@@ -35,6 +35,7 @@ tokio = { version = "1", features = ["sync", "rt", "macros"] }
 ureq = { version = "2", features = ["json"] }
 base64 = "0.22"
 uuid = { version = "1", features = ["v4"] }
+trash = "5"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = "0.2"

@@ -167,6 +167,20 @@ impl Db {
         Ok(())
     }
 
+    pub fn rename_file(&self, old_path: &str, new_path: &str) -> Result<()> {
+        let conn = self.conn.lock().unwrap();
+        // Derive the new kind from the extension
+        let ext = std::path::Path::new(new_path)
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default();
+        conn.execute(
+            "UPDATE files SET path = ?, kind = ? WHERE path = ?",
+            params![new_path, ext, old_path],
+        )?;
+        Ok(())
+    }
+
     pub fn get_file(&self, path: &str) -> Result<Option<FileRow>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(

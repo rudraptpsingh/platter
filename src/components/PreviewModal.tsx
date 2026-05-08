@@ -13,11 +13,15 @@ type Props = {
   onClose: () => void;
   onDecided: (path: string, decision: "approved" | "rejected") => void;
   onNavigate: (file: FileRow) => void;
+  onTrash?: (path: string) => void;
+  onRename?: (oldPath: string, newPath: string) => void;
 };
 
-export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }: Props) {
+export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate, onTrash, onRename }: Props) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [showShare, setShowShare] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameDraft, setRenameDraft] = useState("");
   const toast = useToast();
   const copyable = isTextCopyable(file.path);
   const shareable = shareKindFor(file.path) !== null;
@@ -125,6 +129,29 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
     });
   }
 
+  function startRename() {
+    setRenameDraft(basename(file.path));
+    setRenaming(true);
+  }
+
+  function commitRename() {
+    const newName = renameDraft.trim();
+    if (!newName || newName === basename(file.path)) {
+      setRenaming(false);
+      return;
+    }
+    const dir = dirname(file.path);
+    const newPath = `${dir}/${newName}`;
+    onRename?.(file.path, newPath);
+    setRenaming(false);
+  }
+
+  function handleTrash() {
+    const name = basename(file.path);
+    if (!confirm(`Move "${name}" to Trash?`)) return;
+    onTrash?.(file.path);
+  }
+
   const isVisualHtml = file.kind === "html" || file.kind === "htm";
   const isImage = ["png", "jpg", "jpeg", "gif", "svg", "webp"].includes(file.kind);
 
@@ -200,7 +227,23 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
 
           <div className="meta-panel__scroll">
             <div className="meta-panel__head">
-              <h2 className="meta-panel__title">{basename(file.path)}</h2>
+              {renaming ? (
+                <form onSubmit={(e) => { e.preventDefault(); commitRename(); }} className="meta-panel__rename-form">
+                  <input
+                    className="meta-panel__rename-input"
+                    value={renameDraft}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onBlur={commitRename}
+                    onKeyDown={(e) => e.key === "Escape" && setRenaming(false)}
+                    autoFocus
+                    spellCheck={false}
+                  />
+                </form>
+              ) : (
+                <h2 className="meta-panel__title" onDoubleClick={onRename ? startRename : undefined} title={onRename ? "Double-click to rename" : undefined}>
+                  {basename(file.path)}
+                </h2>
+              )}
               <div className="meta-panel__path">{dirname(file.path)}</div>
             </div>
 
@@ -325,6 +368,22 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate }:
                 <path d="M3 7h8m0 0L7.5 3.5M11 7l-3.5 3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
             </button>
+            {onRename && (
+              <button className="btn btn--icon" onClick={startRename} title="Rename">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                  <path d="M8.5 2.5l3 3M2 11l1-3.5L10 1l3 3-7 7.5L2.5 13 2 11z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
+            {onTrash && (
+              <button className="btn btn--icon btn--danger" onClick={handleTrash} title="Move to Trash">
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                  <path d="M3 4h8l-.75 8.25a1 1 0 01-1 .75H4.75a1 1 0 01-1-.75L3 4z" stroke="currentColor" strokeWidth="1.1"/>
+                  <path d="M2 4h10M5.5 2h3a.5.5 0 01.5.5V4h-4V2.5a.5.5 0 01.5-.5z" stroke="currentColor" strokeWidth="1.1"/>
+                  <path d="M5.5 6.5v4M8.5 6.5v4" stroke="currentColor" strokeWidth="1"/>
+                </svg>
+              </button>
+            )}
           </div>
         </aside>
       </div>

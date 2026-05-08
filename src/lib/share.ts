@@ -73,6 +73,7 @@ export function shareKindFor(path: string): ShareKind | null {
 export async function createShareCollection(opts: {
   paths: string[];
   prompt?: string;
+  title?: string;
   expires_seconds?: number;
 }): Promise<CreateShareCollectionResult> {
   const deviceId = await readDeviceId();
@@ -95,6 +96,7 @@ export async function createShareCollection(opts: {
       device_id: deviceId,
       items,
       prompt: opts.prompt?.trim() || undefined,
+      title: opts.title || undefined,
       expires_seconds: opts.expires_seconds,
     }),
   });
@@ -112,6 +114,7 @@ export async function createShareCollection(opts: {
 export async function createShare(opts: {
   path: string;
   prompt?: string;
+  title?: string;
   expires_seconds?: number;
 }): Promise<CreateShareResult> {
   const filename = opts.path.split("/").pop() ?? "asset";
@@ -135,6 +138,7 @@ export async function createShare(opts: {
       kind,
       content_b64,
       prompt: opts.prompt?.trim() || undefined,
+      title: opts.title || undefined,
       expires_seconds: opts.expires_seconds,
     }),
   });

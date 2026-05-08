@@ -131,6 +131,26 @@
   margin-bottom: 8px;
 }
 
+.share-field__input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  background: rgba(27, 23, 20, 0.04);
+  border: 0.5px solid transparent;
+  border-radius: var(--r);
+  padding: 8px 12px;
+  outline: none;
+  transition: all 0.18s var(--ease-out);
+  box-sizing: border-box;
+}
+.share-field__input:focus {
+  background: rgba(255, 253, 248, 0.92);
+  border-color: var(--vermilion);
+  box-shadow: 0 0 0 3px var(--vermilion-soft);
+}
+
 .share-field__ta {
   width: 100%;
   resize: vertical;

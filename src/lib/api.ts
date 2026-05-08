@@ -34,6 +34,8 @@ export const api = {
   toggleRoot: (id: number, enabled: boolean) =>
     invoke<void>("toggle_root", { id, enabled }),
   removeFile: (path: string) => invoke<void>("remove_file", { path }),
+  trashFile: (path: string) => invoke<void>("trash_file", { path }),
+  renameFile: (oldPath: string, newPath: string) => invoke<void>("rename_file", { oldPath, newPath }),
   startGitHubOAuth: () => invoke<void>("start_github_oauth"),
   getGitHubToken: () => invoke<string | null>("get_github_token"),
   clearGitHubToken: () => invoke<void>("clear_github_token"),

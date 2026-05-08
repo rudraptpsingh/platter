@@ -8,7 +8,7 @@ import {
   sendNotification,
 } from "@tauri-apps/plugin-notification";
 import type { FileRow, FilterDecision, FilterKind, RepoNode, ReviewRequest, TreeNode } from "./types";
-import { api, basename, relativeTime } from "./lib/api";
+import { api, basename, dirname, relativeTime } from "./lib/api";
 import { loadGitHubUser, type GitHubUser } from "./lib/github";
 import { Card } from "./components/Card";
 import { PreviewModal } from "./components/PreviewModal";
@@ -901,6 +901,25 @@ function AppInner() {
                     comparedSlot={slot === -1 ? null : (slot as 0 | 1)}
                     showLocation={view !== "folder"}
                     onJumpToFolder={(folder) => handleSelectFolder(folder)}
+                    onReveal={(path) => {
+                      import("@tauri-apps/plugin-opener").then(({ revealItemInDir }) => {
+                        revealItemInDir(path).catch(console.error);
+                      });
+                    }}
+                    onTrash={async (path) => {
+                      if (!confirm(`Move "${basename(path)}" to Trash?`)) return;
+                      try {
+                        await api.trashFile(path);
+                        toast.show({ message: `Moved ${basename(path)} to Trash`, tone: "ok" });
+                        refreshAfterDecision();
+                      } catch (e) {
+                        toast.show({ message: `Trash failed: ${e}`, tone: "warn" });
+                      }
+                    }}
+                    onRename={(path) => {
+                      // Open preview in rename mode — simplest UX
+                      setPreviewFile(files.find((x) => x.path === path) ?? recent.find((x) => x.path === path) ?? null);
+                    }}
                   />
                 );
               })}
@@ -915,6 +934,29 @@ function AppInner() {
             onClose={() => setPreviewFile(null)}
             onDecided={handleDecided}
             onNavigate={(f) => setPreviewFile(f)}
+            onTrash={async (path) => {
+              try {
+                await api.trashFile(path);
+                toast.show({ message: `Moved ${basename(path)} to Trash`, tone: "ok" });
+                setPreviewFile(null);
+                refreshAfterDecision();
+              } catch (e) {
+                toast.show({ message: `Trash failed: ${e}`, tone: "warn" });
+              }
+            }}
+            onRename={async (oldPath, newPath) => {
+              try {
+                await api.renameFile(oldPath, newPath);
+                toast.show({ message: `Renamed to ${basename(newPath)}`, tone: "ok" });
+                await refreshAfterDecision();
+                // Update preview to the renamed file
+                const fresh = await api.listFiles(dirname(newPath));
+                const renamed = fresh.find((f) => f.path === newPath);
+                if (renamed) setPreviewFile(renamed);
+              } catch (e) {
+                toast.show({ message: `Rename failed: ${e}`, tone: "warn" });
+              }
+            }}
           />
         )}
 

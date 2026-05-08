@@ -389,6 +389,22 @@ fn remove_file(path: String, state: State<AppState>) -> Result<(), String> {
     state.db.delete_file(&path).map_err(|e| e.to_string())
 }
 
+/// Move a file to the OS trash (macOS Trash / Linux trash / Windows recycle bin).
+/// Also removes the entry from the DB.
+#[tauri::command]
+fn trash_file(path: String, state: State<AppState>) -> Result<(), String> {
+    trash::delete(&path).map_err(|e| e.to_string())?;
+    let _ = state.db.delete_file(&path);
+    Ok(())
+}
+
+/// Rename (or move) a file on disk and update the DB path.
+#[tauri::command]
+fn rename_file(old_path: String, new_path: String, state: State<AppState>) -> Result<(), String> {
+    std::fs::rename(&old_path, &new_path).map_err(|e| e.to_string())?;
+    state.db.rename_file(&old_path, &new_path).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 fn get_device_id(state: State<AppState>) -> String {
     if let Ok(Some(id)) = state.db.get_setting("device_id") {
@@ -522,6 +538,8 @@ pub fn run(open_folder: Option<String>) {
             toggle_root,
             get_initial_folder,
             remove_file,
+            trash_file,
+            rename_file,
             get_device_id,
             get_github_token,
             clear_github_token,

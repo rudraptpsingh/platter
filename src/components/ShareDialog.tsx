@@ -31,6 +31,8 @@ export function ShareDialog({ file, files, onClose }: Props) {
   const canSlideshow = shareableFiles.length > 1;
 
   const [mode, setMode] = useState<"single" | "slideshow">(canSlideshow ? "slideshow" : "single");
+  const defaultTitle = file.path.split("/").pop()?.replace(/\.[^.]+$/, "") ?? "Untitled";
+  const [title, setTitle] = useState(defaultTitle);
   const [prompt, setPrompt] = useState(`What do you think about ${file.path.split("/").pop()}?`);
   const [expiry, setExpiry] = useState(EXPIRY_OPTIONS[1]); // default 7 days
   const [working, setWorking] = useState(false);
@@ -54,6 +56,7 @@ export function ShareDialog({ file, files, onClose }: Props) {
         const r = await createShareCollection({
           paths: shareableFiles.map((f) => f.path),
           prompt,
+          title: title.trim() || undefined,
           expires_seconds: expiry.seconds,
         });
         // Map each item's share_id back to its local path so decisions carry over.
@@ -65,6 +68,7 @@ export function ShareDialog({ file, files, onClose }: Props) {
         const r = await createShare({
           path: file.path,
           prompt,
+          title: title.trim() || undefined,
           expires_seconds: expiry.seconds,
         });
         rememberShare(r.id, file.path);
@@ -135,6 +139,19 @@ export function ShareDialog({ file, files, onClose }: Props) {
             </div>
 
             <div className="share-field">
+              <label htmlFor="share-title">Title</label>
+              <input
+                id="share-title"
+                className="share-field__input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. 'Hero banner spring launch'"
+                maxLength={120}
+                autoFocus
+              />
+            </div>
+
+            <div className="share-field">
               <label htmlFor="share-prompt">What should the reviewer decide on?</label>
               <textarea
                 id="share-prompt"
@@ -144,7 +161,6 @@ export function ShareDialog({ file, files, onClose }: Props) {
                 placeholder="e.g. 'Does this hero variant feel right for the spring launch?'"
                 rows={3}
                 maxLength={1024}
-                autoFocus
               />
             </div>
 
