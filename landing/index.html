@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>platter — The review step agents keep skipping.</title>
-  <meta name="description" content="A Mac desktop app that watches the folders where Claude Code drops mockups, screenshots, and PDFs — and lets Claude pause for a human review." />
+  <title>platter — A review tray for your AI agent</title>
+  <meta name="description" content="platter watches the folders where Claude Code drops mockups and files. When Claude wants your approval, it pauses and asks. You decide. Work continues." />
 
-  <meta property="og:title" content="platter — the human-in-the-loop step Claude Code is missing" />
-  <meta property="og:description" content="Agents make mockups. You decide in three keystrokes. Work continues." />
+  <meta property="og:title" content="platter — A review tray for your AI agent" />
+  <meta property="og:description" content="Claude generates files. platter surfaces them and lets you approve before anything ships." />
   <meta property="og:image" content="og.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="platter" />
@@ -50,13 +50,13 @@
   <div class="hero__inner">
     <div class="hero__badge">
       <span class="hero__badge-dot"></span>
-      Now in public beta &nbsp;·&nbsp; v0.5
+      Public beta &nbsp;·&nbsp; v0.6.0
     </div>
     <h1>The review step<br><span class="h1--muted">agents keep skipping.</span></h1>
     <p class="hero__lede">
-      Claude generates dozens of mockups a day. Platter surfaces them
-      the moment they land — and blocks the next step until you've
-      actually looked.
+      Claude generates files you never asked to see. platter surfaces them
+      the moment they land and pauses the agent until you've decided.
+      No more shipping things you haven't looked at.
     </p>
     <div class="hero__ctas">
       <a class="btn btn--dark" href="https://github.com/rudraptpsingh/platter/releases" target="_blank" rel="noreferrer">
@@ -64,7 +64,7 @@
         Download for macOS
       </a>
       <a class="btn btn--ghost" href="#how">See how it works</a>
-      <a href="/try" class="hero__try-link">Try it free →</a>
+      <a href="/try" class="hero__try-link">Try without installing →</a>
     </div>
     <div class="hero__meta">
       <a class="star-badge" href="https://github.com/rudraptpsingh/platter" target="_blank" rel="noreferrer" id="starBadge">
@@ -72,11 +72,11 @@
         <span id="starCount">—</span>
       </a>
       <span class="meta-dot"></span>
-      <span>v0.5</span>
+      <span>v0.6.0</span>
       <span class="meta-dot"></span>
       <span>macOS 11+</span>
       <span class="meta-dot"></span>
-      <span>free for individuals</span>
+      <span>free for individuals and small teams</span>
     </div>
   </div>
 </section>
@@ -199,8 +199,8 @@
 
 <!-- ─── Personas ─────────────────────────────────────── -->
 <div class="personas-wrap">
-  <div class="personas-label">Built for every role on the team</div>
-  <div class="personas-title">One tool. Three different superpowers.</div>
+  <div class="personas-label">Who uses it</div>
+  <div class="personas-title">One command. Works for everyone on the team.</div>
   <div class="personas-grid">
 
     <div class="persona">
@@ -211,8 +211,8 @@
         </svg>
       </div>
       <div class="persona__role" style="color:#6366F1">Designer</div>
-      <div class="persona__name">See it before it ships.</div>
-      <div class="persona__desc">Every mockup Claude generates lands instantly. Approve in one click. No more hunting through folders or waiting for a link.</div>
+      <div class="persona__name">Every file, the moment it lands.</div>
+      <div class="persona__desc">platter watches your agent's output folder. Every mockup appears in the gallery as soon as it's written. Approve or reject without leaving the app.</div>
       <div class="persona__callout">"I approved 12 variants in the time it used to take me to find one file."</div>
     </div>
 
@@ -223,9 +223,9 @@
         </svg>
       </div>
       <div class="persona__role" style="color:#16A34A">Developer</div>
-      <div class="persona__name">Claude waits. You decide.</div>
-      <div class="persona__desc">Add one MCP command. Agent blocks mid-session for your sign-off. No more running code nobody wanted.</div>
-      <div class="persona__callout">"Cut my reverting-bad-UI time by 80%. The agent just stops and asks now."</div>
+      <div class="persona__name">The agent stops and asks.</div>
+      <div class="persona__desc">One MCP command wires platter into Claude Code. The agent calls <code>present_mockups()</code>, the session pauses, and resumes only after you decide. Your feedback is baked into the next prompt.</div>
+      <div class="persona__callout">"The agent just stops and asks now. I stopped reverting bad UIs."</div>
     </div>
 
     <div class="persona">
@@ -237,9 +237,9 @@
         </svg>
       </div>
       <div class="persona__role" style="color:#EA580C">Planner / PM</div>
-      <div class="persona__name">Review on a link. No install.</div>
-      <div class="persona__desc">Press S in Platter, share URL, stakeholders approve in browser. Decisions sync back automatically and unblock the agent.</div>
-      <div class="persona__callout">"I reviewed 8 mockups on my phone during standup. Agent shipped the winner."</div>
+      <div class="persona__name">Review on a link. No install needed.</div>
+      <div class="persona__desc">Press <kbd>S</kbd> on any file to generate a public review URL. The stakeholder opens it in any browser, approves or rejects, and the decision syncs back to the agent automatically.</div>
+      <div class="persona__callout">"Reviewed 8 mockups on my phone during standup. Agent shipped the winner."</div>
     </div>
 
   </div>
@@ -248,7 +248,7 @@
 <!-- ─── How it works ─────────────────────────────────── -->
 <div id="how" class="how-wrap">
   <div class="section-label">How it works</div>
-  <div class="section-title">Set it up in 60 seconds.</div>
+  <div class="section-title">Running in under a minute.</div>
   <div class="steps-grid">
 
     <div class="step">
@@ -256,8 +256,8 @@
       <div class="step__icon">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 5h12v10a1 1 0 01-1 1H4a1 1 0 01-1-1V5z" stroke="#0A0A0A" stroke-width="1.4"/><path d="M3 5l2.5-2.5h3L9 5" stroke="#0A0A0A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-      <div class="step__h">Auto-indexed</div>
-      <div class="step__p">Platter watches <code>~/github/*/mockups</code> and any folder you add. No setup per project. Files appear the instant they're written.</div>
+      <div class="step__h">Watches your folders</div>
+      <div class="step__p">platter watches <code>~/github/*/mockups</code> and any path you add in Settings. No per-project configuration. Files appear as soon as they're written to disk.</div>
     </div>
 
     <div class="step">
@@ -265,8 +265,8 @@
       <div class="step__icon">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="8" width="12" height="8" rx="1.5" stroke="#0A0A0A" stroke-width="1.4"/><path d="M6 8V6a3 3 0 016 0v2" stroke="#0A0A0A" stroke-width="1.4" stroke-linecap="round"/></svg>
       </div>
-      <div class="step__h">Claude waits</div>
-      <div class="step__p">The agent calls <code>present_mockups()</code> via MCP and pauses. You review in Platter, approve or reject, and the agent continues with your feedback baked in.</div>
+      <div class="step__h">The agent pauses</div>
+      <div class="step__p">Claude calls <code>present_mockups()</code> and the session blocks. platter comes to the front. You approve or reject — and the agent picks up with your decision in context.</div>
     </div>
 
     <div class="step">
@@ -274,8 +274,8 @@
       <div class="step__icon">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="5" cy="9" r="2" stroke="#0A0A0A" stroke-width="1.4"/><circle cx="13" cy="4.5" r="2" stroke="#0A0A0A" stroke-width="1.4"/><circle cx="13" cy="13.5" r="2" stroke="#0A0A0A" stroke-width="1.4"/><path d="M6.9 8.1L11.1 5.4M6.9 9.9L11.1 12.6" stroke="#0A0A0A" stroke-width="1.4" stroke-linecap="round"/></svg>
       </div>
-      <div class="step__h">Share to anyone</div>
-      <div class="step__p">Press <kbd>S</kbd> to generate a public link. Teammates review in any browser — no Platter install. Verdicts sync back automatically.</div>
+      <div class="step__h">Or share a link</div>
+      <div class="step__p">Press <kbd>S</kbd> to generate a public review URL. The recipient opens it in any browser — no platter required. Their verdict syncs back to your session.</div>
     </div>
 
   </div>
@@ -289,7 +289,7 @@
         <span class="eyebrow">get started</span>
         <h2 class="h2">Up in four steps.</h2>
       </div>
-      <p class="setup-lede">From download to your first agent-driven review in under five minutes.</p>
+      <p class="setup-lede">From download to first review in under 5 minutes.</p>
     </div>
 
     <div class="steps-list">
@@ -349,7 +349,7 @@
 
 <!-- ─── Terminal ─────────────────────────────────────── -->
 <div class="terminal-wrap">
-  <div class="terminal-label">Works with Claude Code out of the box</div>
+  <div class="terminal-label">Claude Code integration</div>
   <div class="terminal">
     <div class="term-chrome">
       <div class="win-dot" style="background:#FF5F57"></div>
@@ -372,7 +372,7 @@
 <!-- ─── Quotes ────────────────────────────────────────── -->
 <div class="quotes-wrap">
   <div class="quote">
-    <div class="quote__text">"Claude was shipping <strong>broken UIs silently.</strong> Platter turned every mockup into a checkpoint."</div>
+    <div class="quote__text">"Claude was shipping broken UIs and I wasn't seeing them. platter fixed that — every mockup is now a checkpoint I actually review."</div>
     <div class="quote__who">
       <div class="quote__av" style="background:#6366F1">SR</div>
       <div>
@@ -382,7 +382,7 @@
     </div>
   </div>
   <div class="quote">
-    <div class="quote__text">"The <strong>present_mockups() call</strong> is a game changer. The agent waits for me now. I feel back in control."</div>
+    <div class="quote__text">"One MCP command and the agent started asking before shipping. <code>present_mockups()</code> is the missing piece of the Claude Code workflow."</div>
     <div class="quote__who">
       <div class="quote__av" style="background:#10B981">MK</div>
       <div>
@@ -392,7 +392,7 @@
     </div>
   </div>
   <div class="quote">
-    <div class="quote__text">"Shared a link, PM approved in 4 minutes, Claude shipped. <strong>No Figma, no Slack thread.</strong>"</div>
+    <div class="quote__text">"Sent the share link to our PM. She approved in 4 minutes from her phone. Claude shipped it. No Figma, no back-and-forth Slack thread."</div>
     <div class="quote__who">
       <div class="quote__av" style="background:#F59E0B">AJ</div>
       <div>
@@ -408,8 +408,8 @@
   <div class="oss-inner">
     <div class="oss-left">
       <div class="oss-eyebrow">Open source · MIT license</div>
-      <div class="oss-title">Built in public.<br>Contributions welcome.</div>
-      <div class="oss-desc">Platter is open source. Whether you want to add a new file type, improve the MCP tooling, or build a self-hosted share server — the door is open.</div>
+      <div class="oss-title">Open source.<br>MIT licensed.</div>
+      <div class="oss-desc">The full source is on GitHub. Add a file type, extend the MCP tools, or self-host the share server. No contributor agreement, no CLA, no gatekeeping.</div>
       <div class="oss-stats">
         <div class="oss-stat">
           <div class="oss-stat__n">MIT</div>
@@ -440,18 +440,18 @@
   <div class="container">
     <div class="section-head section-head--center">
       <span class="eyebrow">pricing</span>
-      <h2 class="h2">Free for individuals.<br><em>Always.</em></h2>
+      <h2 class="h2">Free for individuals<br>and small teams.</h2>
       <p class="section-lede" style="text-align:center;margin:0 auto;">
-        Platter follows the same model as <a href="https://remotion.dev" target="_blank" rel="noreferrer" style="color:#C9472A">Remotion</a>: free if you're an individual or a company of three or fewer people. Paid tiers for larger teams are in design — they'll arrive later in 2026.
+        platter uses the same licensing model as <a href="https://remotion.dev" target="_blank" rel="noreferrer" style="color:#C9472A">Remotion</a>: free if you're a solo developer or at a company with 3 or fewer people. Team and company tiers are planned for later in 2026.
       </p>
     </div>
 
     <div class="pricing-grid">
 
       <div class="pricing-card pricing-card--featured">
-        <div class="pricing-card__eyebrow">Free · forever</div>
+        <div class="pricing-card__eyebrow">Free</div>
         <div class="pricing-card__price">$0</div>
-        <div class="pricing-card__tagline">For individuals and small teams</div>
+        <div class="pricing-card__tagline">For individuals and companies with ≤ 3 employees</div>
         <ul class="pricing-card__list">
           <li>✓ Unlimited reviews &amp; decisions</li>
           <li>✓ All five MCP tools</li>
@@ -463,7 +463,7 @@
           <li>✓ Auto-updates</li>
         </ul>
         <div class="pricing-card__rule">
-          Free for: individuals · open source projects · companies with ≤&thinsp;3 people · evaluation use
+          Free if you're a solo developer, contributing to an open source project, or your company has 3 or fewer employees.
         </div>
         <a class="btn btn--dark" href="https://github.com/rudraptpsingh/platter/releases" target="_blank" rel="noreferrer" style="width:100%;justify-content:center;margin-top:20px;">Download free</a>
       </div>
@@ -506,7 +506,7 @@
     </div>
 
     <p class="pricing-note">
-      Not sure which tier applies? If you're an individual developer or work at a company with three or fewer people — you're free. No credit card, no account required. If you're at a larger company and want to track pricing announcements, <a href="https://github.com/rudraptpsingh/platter" target="_blank" rel="noreferrer">watch the repo</a>.
+      If you're unsure: solo developer or company with ≤ 3 people — you're free. No credit card. No account. If you're at a larger company, <a href="https://github.com/rudraptpsingh/platter" target="_blank" rel="noreferrer">watch the repo</a> for team pricing announcements.
     </p>
   </div>
 </section>
@@ -514,7 +514,7 @@
 <!-- ─── Bottom CTA ───────────────────────────────────── -->
 <div class="bottom-cta">
   <h2 class="bottom-cta__h">Your agent ships.<br><em>Do you know what it built?</em></h2>
-  <p class="bottom-cta__p">Free forever. Local and private. No account required for the desktop app.</p>
+  <p class="bottom-cta__p">No account. No cloud. Runs entirely on your machine.</p>
   <div class="bottom-cta__row">
     <a class="btn btn--dark" href="https://github.com/rudraptpsingh/platter/releases" target="_blank" rel="noreferrer">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1.5v8.5m0 0L4 7m3 3l3-3M2.5 12.5h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -526,13 +526,13 @@
     </a>
   </div>
   <div class="trust-row">
-    <span>Free forever</span>
+    <span>Free for individuals</span>
     <span class="trust-dot"></span>
-    <span>Local · private</span>
+    <span>Runs locally</span>
     <span class="trust-dot"></span>
-    <span>MCP-native</span>
+    <span>No account</span>
     <span class="trust-dot"></span>
-    <span>Open source</span>
+    <span>MIT license</span>
   </div>
 </div>
 
