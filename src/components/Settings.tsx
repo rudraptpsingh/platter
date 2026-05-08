@@ -4,6 +4,11 @@ import type { GitHubUser } from "../lib/github";
 import { api } from "../lib/api";
 import * as telemetry from "../lib/telemetry";
 import { Popover, PopoverMenu } from "./Popover";
+import {
+  DEFAULT_SHARE_BASE,
+  SHARE_BACKEND_KEY,
+  getShareBase,
+} from "../lib/share";
 
 import "../styles/settings.css";
 
@@ -17,8 +22,8 @@ type Props = {
 
 export function Settings({ onClose, onChanged, githubUser, onGitHubSignIn, onGitHubSignOut }: Props) {
   const [section, setSection] = useState<
-    "account" | "roots" | "claude" | "privacy" | "about"
-  >("account");
+    "sharing" | "roots" | "claude" | "privacy" | "about"
+  >("sharing");
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -39,19 +44,25 @@ export function Settings({ onClose, onChanged, githubUser, onGitHubSignIn, onGit
           </svg>
         </button>
 
-        <div className="settings-nav__section">account</div>
+        <div className="settings-nav__section">features</div>
         <button
-          className={`settings-nav__row ${section === "account" ? "settings-nav__row--active" : ""}`}
-          onClick={() => setSection("account")}
+          className={`settings-nav__row ${section === "sharing" ? "settings-nav__row--active" : ""}`}
+          onClick={() => setSection("sharing")}
         >
-          <GitHubNavIcon />
-          <span style={{ flex: 1 }}>GitHub</span>
+          <ShareNavIcon />
+          <span style={{ flex: 1 }}>Share links</span>
           {!githubUser && (
-            <span className="settings-nav__badge">Sign in</span>
+            <span className="settings-nav__badge" style={{ opacity: 0.55 }}>optional</span>
           )}
           {githubUser && (
             <img src={githubUser.avatar_url} alt="" style={{ width: 16, height: 16, borderRadius: "50%" }} />
           )}
+        </button>
+        <button
+          className={`settings-nav__row ${section === "claude" ? "settings-nav__row--active" : ""}`}
+          onClick={() => setSection("claude")}
+        >
+          <ClaudeIcon /> Claude integration
         </button>
 
         <div className="settings-nav__section" style={{ marginTop: 14 }}>settings</div>
@@ -60,12 +71,6 @@ export function Settings({ onClose, onChanged, githubUser, onGitHubSignIn, onGit
           onClick={() => setSection("roots")}
         >
           <FolderIcon /> Watch roots
-        </button>
-        <button
-          className={`settings-nav__row ${section === "claude" ? "settings-nav__row--active" : ""}`}
-          onClick={() => setSection("claude")}
-        >
-          <ClaudeIcon /> Claude integration
         </button>
         <button
           className={`settings-nav__row ${section === "privacy" ? "settings-nav__row--active" : ""}`}
@@ -85,8 +90,8 @@ export function Settings({ onClose, onChanged, githubUser, onGitHubSignIn, onGit
 
       <main className="settings-pane">
         <div className="settings-pane__drag" />
-        {section === "account" && (
-          <AccountSection
+        {section === "sharing" && (
+          <SharingSection
             githubUser={githubUser ?? null}
             onSignIn={onGitHubSignIn ?? (() => {})}
             onSignOut={onGitHubSignOut ?? (() => {})}
@@ -101,9 +106,9 @@ export function Settings({ onClose, onChanged, githubUser, onGitHubSignIn, onGit
   );
 }
 
-// ─── Account (GitHub) ─────────────────────────────────
+// ─── Share links ──────────────────────────────────────
 
-function AccountSection({
+function SharingSection({
   githubUser,
   onSignIn,
   onSignOut,
@@ -112,23 +117,196 @@ function AccountSection({
   onSignIn: () => void;
   onSignOut: () => void;
 }) {
+  const [backendUrl, setBackendUrl] = useState(() => getShareBase());
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(backendUrl);
+  const [pingStatus, setPingStatus] = useState<"idle" | "checking" | "ok" | "error">("idle");
+  const [pingMs, setPingMs] = useState<number | null>(null);
+
+  function saveUrl() {
+    const trimmed = draft.trim().replace(/\/$/, "");
+    if (trimmed) {
+      localStorage.setItem(SHARE_BACKEND_KEY, trimmed);
+      setBackendUrl(trimmed);
+    } else {
+      localStorage.removeItem(SHARE_BACKEND_KEY);
+      setBackendUrl(DEFAULT_SHARE_BASE);
+      setDraft(DEFAULT_SHARE_BASE);
+    }
+    setEditing(false);
+  }
+
+  function resetUrl() {
+    localStorage.removeItem(SHARE_BACKEND_KEY);
+    setBackendUrl(DEFAULT_SHARE_BASE);
+    setDraft(DEFAULT_SHARE_BASE);
+    setEditing(false);
+  }
+
+  async function testConnection() {
+    setPingStatus("checking");
+    setPingMs(null);
+    const url = editing ? draft.trim().replace(/\/$/, "") : backendUrl;
+    const start = Date.now();
+    try {
+      const r = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(5000) });
+      const ms = Date.now() - start;
+      if (r.ok) {
+        setPingStatus("ok");
+        setPingMs(ms);
+      } else {
+        setPingStatus("error");
+      }
+    } catch {
+      setPingStatus("error");
+    }
+  }
+
+  const isDefault = backendUrl === DEFAULT_SHARE_BASE;
+
   return (
     <>
       <div className="settings-head">
-        <div className="settings-eyebrow">★ account</div>
-        <h1 className="settings-title">GitHub</h1>
+        <div className="settings-eyebrow">★ public review links</div>
+        <h1 className="settings-title">Send a link. Get a verdict.</h1>
         <p className="settings-lede">
-          Sign in to attach your identity to shared review links and see who approved or rejected what.
+          Platter uploads your file to a server, generates a URL anyone can open,
+          and syncs decisions back automatically. No account required — your device ID is the owner.
         </p>
       </div>
 
+      {/* How it works */}
       <section className="settings-section">
+        <div className="settings-section__head">
+          <h2 className="settings-section__title">How it works</h2>
+          <span className="settings-section__count">3 steps · automatic</span>
+        </div>
+        <div className="setup-guide">
+          <div className="setup-guide__step">
+            <div className="setup-guide__num">1</div>
+            <div className="setup-guide__body">
+              <div className="setup-guide__title">Create a link</div>
+              <div className="setup-guide__desc">
+                Right-click any file in the gallery and choose <strong>Share…</strong>. Platter reads
+                the file, uploads it to the review server, and gives you a URL. Files up to 4 MB.
+                Supported: HTML, PNG, JPG, SVG, PDF, Markdown.
+              </div>
+            </div>
+          </div>
+          <div className="setup-guide__step">
+            <div className="setup-guide__num">2</div>
+            <div className="setup-guide__body">
+              <div className="setup-guide__title">Reviewer opens the link</div>
+              <div className="setup-guide__desc">
+                The link works in any browser. No platter, no account, nothing to install. The reviewer
+                sees the file at full fidelity and clicks <strong>Approve</strong> or <strong>Reject</strong>.
+                They can optionally sign in with GitHub to attach their name.
+              </div>
+            </div>
+          </div>
+          <div className="setup-guide__step">
+            <div className="setup-guide__num">3</div>
+            <div className="setup-guide__body">
+              <div className="setup-guide__title">Decisions sync back</div>
+              <div className="setup-guide__desc">
+                Platter polls the server every few minutes and applies verdicts to your local files
+                automatically. Approved files turn green; rejected files turn red — same as if you'd
+                decided locally. No manual step.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Backend URL */}
+      <section className="settings-section">
+        <div className="settings-section__head">
+          <h2 className="settings-section__title">Review server</h2>
+          <span className="settings-section__count">
+            {isDefault ? "hosted · free to use" : "self-hosted"}
+          </span>
+        </div>
+
+        <div className="root-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 10, padding: "14px 16px" }}>
+          {!editing ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 12.5, color: "var(--ink)", wordBreak: "break-all" }}>
+                  {backendUrl}
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3 }}>
+                  {isDefault
+                    ? "Official server — files stored for the duration of the link expiry, then deleted."
+                    : "Custom server — make sure /api/share/create and /api/health are reachable."}
+                </div>
+              </div>
+              <button className="add-root__btn" style={{ flexShrink: 0 }} onClick={() => { setDraft(backendUrl); setEditing(true); }}>
+                Change
+              </button>
+              <button
+                className="add-root__btn"
+                style={{ flexShrink: 0, background: pingStatus === "ok" ? "var(--sage)" : pingStatus === "error" ? "var(--brick)" : undefined }}
+                onClick={testConnection}
+                disabled={pingStatus === "checking"}
+              >
+                {pingStatus === "checking" ? "Checking…"
+                  : pingStatus === "ok" ? `✓ ${pingMs}ms`
+                  : pingStatus === "error" ? "✗ Unreachable"
+                  : "Test"}
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <input
+                className="add-root__input"
+                type="url"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="https://your-deployment.pages.dev"
+                onKeyDown={(e) => { if (e.key === "Enter") saveUrl(); if (e.key === "Escape") setEditing(false); }}
+                autoFocus
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="add-root__btn" onClick={saveUrl} disabled={!draft.trim()}>Save</button>
+                <button className="add-root__btn" style={{ background: "transparent", color: "var(--ink-2)", border: "1px solid var(--ink-4)" }} onClick={() => setEditing(false)}>Cancel</button>
+                {!isDefault && (
+                  <button className="add-root__btn" style={{ marginLeft: "auto", background: "var(--brick)" }} onClick={resetUrl}>
+                    Reset to default
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="help-card">
+          The default server at <code>platter.pages.dev</code> is free to use. For a private deployment,
+          follow the{" "}
+          <a
+            href="https://github.com/rudraptpsingh/platter/blob/main/docs/SETUP.md"
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: "var(--vermilion)" }}
+          >
+            Cloudflare setup guide
+          </a>{" "}
+          — one <code>wrangler deploy</code> command, takes about 5 minutes.
+        </div>
+      </section>
+
+      {/* GitHub identity — optional */}
+      <section className="settings-section">
+        <div className="settings-section__head">
+          <h2 className="settings-section__title">Identity <span style={{ fontWeight: 400, color: "var(--ink-3)" }}>· optional</span></h2>
+          <span className="settings-section__count">attaches your name to decisions</span>
+        </div>
+
         {githubUser ? (
           <div className="account-card account-card--signed-in">
             <img src={githubUser.avatar_url} alt={githubUser.login} className="account-avatar" />
             <div className="account-info">
               <div className="account-name">{githubUser.name ?? githubUser.login}</div>
-              <div className="account-login">@{githubUser.login} · github.com</div>
+              <div className="account-login">@{githubUser.login} · shown on review decisions</div>
             </div>
             <button
               className="add-root__btn"
@@ -140,34 +318,30 @@ function AccountSection({
           </div>
         ) : (
           <div className="account-card account-card--empty">
-            <div className="account-github-icon">
-              <svg width="28" height="28" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 .2C3.6.2 0 3.8 0 8.2c0 3.5 2.3 6.5 5.5 7.5.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1.1-2.7-1.1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8.6-.2 1.3-.3 2-.3s1.4.1 2 .3c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.3.2.5.7.5 1.4v2.1c0 .2.1.5.6.4 3.2-1 5.5-4 5.5-7.5C16 3.8 12.4.2 8 .2z"/>
-              </svg>
-            </div>
             <div className="account-info">
               <div className="account-name">Not signed in</div>
-              <div className="account-login">Sign in to identify yourself on shared review links</div>
+              <div className="account-login">
+                Without sign-in, you appear as <code style={{ fontSize: 11 }}>device·{/* device id truncated */}····</code> on decisions.
+                Decisions still sync — you just won't see a name.
+              </div>
             </div>
             <button
               className="add-root__btn"
               style={{ marginLeft: "auto", flexShrink: 0 }}
               onClick={onSignIn}
             >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 5, verticalAlign: "middle" }}>
+                <path d="M8 .2C3.6.2 0 3.8 0 8.2c0 3.5 2.3 6.5 5.5 7.5.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1.1-2.7-1.1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8.6-.2 1.3-.3 2-.3s1.4.1 2 .3c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.3.2.5.7.5 1.4v2.1c0 .2.1.5.6.4 3.2-1 5.5-4 5.5-7.5C16 3.8 12.4.2 8 .2z"/>
+              </svg>
               Sign in with GitHub
             </button>
           </div>
         )}
-      </section>
 
-      <section className="settings-section">
-        <div className="settings-section__head">
-          <h2 className="settings-section__title">Why sign in?</h2>
-        </div>
-        <div className="help-card">
-          When you share a review link, the recipient sees your GitHub username and avatar next to their
-          decision. Without sign-in, decisions show as "anonymous reviewer". Your token is stored locally
-          and never leaves your machine.
+        <div className="help-card" style={{ marginTop: 8 }}>
+          Sign-in is for <em>your</em> identity as the person who created the share link.
+          Reviewers can also sign in on their end when they open the link — their names show up in the decisions pane.
+          GitHub tokens are stored locally and never leave your machine.
         </div>
       </section>
     </>
@@ -833,10 +1007,12 @@ function InfoIcon() {
   );
 }
 
-function GitHubNavIcon() {
+function ShareNavIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M8 .2C3.6.2 0 3.8 0 8.2c0 3.5 2.3 6.5 5.5 7.5.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1.1-2.7-1.1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8.6-.2 1.3-.3 2-.3s1.4.1 2 .3c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.3.2.5.7.5 1.4v2.1c0 .2.1.5.6.4 3.2-1 5.5-4 5.5-7.5C16 3.8 12.4.2 8 .2z"/>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M9.5 2a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM4.5 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM9.5 9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"
+        stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M6 6.5L8.2 4.5M6 7.5L8.2 9.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
     </svg>
   );
 }

@@ -1,7 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { api } from "./api";
 
-const BASE = "https://platter.pages.dev";
+export const DEFAULT_SHARE_BASE = "https://platter.pages.dev";
+export const SHARE_BACKEND_KEY = "platter:share-backend";
+
+/** Returns the configured share backend URL, falling back to the hosted default. */
+export function getShareBase(): string {
+  return localStorage.getItem(SHARE_BACKEND_KEY)?.trim() || DEFAULT_SHARE_BASE;
+}
 const LOCAL_MAP_KEY = "platter:shares:map";       // { [share_id]: { path, created_at } }
 const LOCAL_SEEN_KEY = "platter:shares:lastSeen"; // { [share_id]: last_decided_at_unix }
 
@@ -82,7 +88,7 @@ export async function createShareCollection(opts: {
     })
   );
 
-  const r = await fetch(`${BASE}/api/share/create-collection`, {
+  const r = await fetch(`${getShareBase()}/api/share/create-collection`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -120,7 +126,7 @@ export async function createShare(opts: {
 
   const deviceId = await readDeviceId();
 
-  const r = await fetch(`${BASE}/api/share/create`, {
+  const r = await fetch(`${getShareBase()}/api/share/create`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -141,7 +147,7 @@ export async function createShare(opts: {
 
 export async function listShares(): Promise<ShareLink[]> {
   const deviceId = await readDeviceId();
-  const r = await fetch(`${BASE}/api/share/list?device_id=${encodeURIComponent(deviceId)}`);
+  const r = await fetch(`${getShareBase()}/api/share/list?device_id=${encodeURIComponent(deviceId)}`);
   if (!r.ok) throw new Error(`List failed (${r.status})`);
   const j = (await r.json()) as { links: ShareLink[] };
   return j.links;
