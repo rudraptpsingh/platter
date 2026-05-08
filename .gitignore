@@ -38,3 +38,5 @@ mockups/v1/.review/
 
 # Local MCP dev config (points to debug binary)
 .mcp.json
+mockups/
+public/mockups/
