@@ -56,6 +56,9 @@ function renderPage(id: string, filename: string, kind: string, prompt: string |
   const assetUrl = `/api/share/${id}?raw=1`;
   const promptText = prompt ? esc(prompt) : "What do you think?";
   const safeName   = esc(filename);
+  const BASE = "https://platter.pages.dev";
+  const ogImage  = isImage ? `${BASE}/api/share/${id}?raw=1` : `${BASE}/screenshot.png`;
+  const twCard   = isImage ? "summary_large_image" : "summary";
 
   let innerEl = "";
   if (isHtml) {
@@ -77,6 +80,13 @@ function renderPage(id: string, filename: string, kind: string, prompt: string |
 <title>${safeName} — platter review</title>
 <meta property="og:title" content="${safeName} · review request">
 <meta property="og:description" content="${promptText}">
+<meta property="og:image" content="${ogImage}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="${BASE}/r/${id}">
+<meta name="twitter:card" content="${twCard}">
+<meta name="twitter:title" content="${safeName} · review request">
+<meta name="twitter:description" content="${promptText}">
+<meta name="twitter:image" content="${ogImage}">
 <meta name="theme-color" content="#14110D">
 ${BASE_STYLES}
 ${PAGE_STYLES}
@@ -86,7 +96,13 @@ ${PAGE_STYLES}
   <!-- Floating header -->
   <header class="hd" id="hd">
     <a class="brand" href="https://platter.pages.dev" tabindex="-1">
-      <span class="brand__orb"></span>
+      <svg class="brand__logo" width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="22" height="22" rx="5" fill="#13100D"/>
+        <ellipse cx="11" cy="9.2" rx="6.6" ry="2.1" fill="#5A5652"/>
+        <rect x="4.4" y="12.9" width="13.2" height="1.65" rx="0.5" fill="#B8B0A4"/>
+        <ellipse cx="11" cy="12.9" rx="6.6" ry="2.1" fill="#EDE7DA"/>
+        <ellipse cx="11" cy="12.6" rx="5.2" ry="1.5" fill="#F6F0E6"/>
+      </svg>
       <span class="brand__name">platter</span>
     </a>
     <span class="hd__file">${safeName}</span>
@@ -423,11 +439,7 @@ body {
   z-index: 20;
 }
 .brand { display:flex;align-items:center;gap:9px;text-decoration:none; }
-.brand__orb {
-  width:22px;height:22px;border-radius:50%;flex-shrink:0;
-  background:radial-gradient(circle at 32% 32%,#C9472A 0%,#5A2E20 100%);
-  border:1px solid rgba(232,223,205,0.45);
-}
+.brand__logo { width:22px;height:22px;flex-shrink:0;border-radius:5px; }
 .brand__name {
   font-family:ui-serif,"New York",Georgia,serif;font-style:italic;
   font-size:17px;color:var(--void-ink);letter-spacing:-.01em;
