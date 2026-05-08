@@ -232,7 +232,7 @@ impl Db {
         Ok(rows)
     }
 
-    pub fn list_files_under(&self, base: &str) -> Result<Vec<FileRow>> {
+    pub fn list_files_under(&self, base: &str, limit: i64) -> Result<Vec<FileRow>> {
         let pattern = format!("{}/%", base.trim_end_matches('/'));
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
@@ -242,10 +242,11 @@ impl Db {
             FROM files
             WHERE path LIKE ?
             ORDER BY mtime DESC
+            LIMIT ?
             "#,
         )?;
         let rows = stmt
-            .query_map(params![pattern], |r| {
+            .query_map(params![pattern, limit], |r| {
                 Ok(FileRow {
                     id: r.get(0)?,
                     path: r.get(1)?,

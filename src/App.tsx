@@ -156,8 +156,13 @@ function AppInner() {
 
   const refreshRepoFiles = useCallback(async (repo: RepoNode | null) => {
     if (!repo) { setFiles([]); return; }
-    const fs = await api.listFilesUnder(repo.base_path);
-    setFiles(fs);
+    try {
+      const fs = await api.listFilesUnder(repo.base_path);
+      setFiles(fs);
+    } catch (e) {
+      console.error("[platter] refreshRepoFiles failed:", e);
+      setFiles([]);
+    }
   }, []);
 
   const refreshRecent = useCallback(async () => {

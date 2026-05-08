@@ -75,7 +75,7 @@ fn list_tree(state: State<AppState>) -> Result<Vec<TreeNode>, String> {
                     }
                 })
                 .collect();
-            sub_children.sort_by(|a, b| b.mtime.cmp(&a.mtime));
+            sub_children.sort_by_key(|x| std::cmp::Reverse(x.mtime));
 
             children.push(TreeNode {
                 label,
@@ -85,7 +85,7 @@ fn list_tree(state: State<AppState>) -> Result<Vec<TreeNode>, String> {
                 children: sub_children,
             });
         }
-        children.sort_by(|a, b| b.mtime.cmp(&a.mtime));
+        children.sort_by_key(|x| std::cmp::Reverse(x.mtime));
         if !children.is_empty() {
             tops.push(TreeNode {
                 label: root.label.clone(),
@@ -96,7 +96,7 @@ fn list_tree(state: State<AppState>) -> Result<Vec<TreeNode>, String> {
             });
         }
     }
-    tops.sort_by(|a, b| b.mtime.cmp(&a.mtime));
+    tops.sort_by_key(|x| std::cmp::Reverse(x.mtime));
     Ok(tops)
 }
 
@@ -357,8 +357,8 @@ fn get_initial_folder(state: State<AppState>) -> Option<String> {
 }
 
 #[tauri::command]
-fn list_files_under(base: String, state: State<AppState>) -> Result<Vec<db::FileRow>, String> {
-    state.db.list_files_under(&base).map_err(|e| e.to_string())
+fn list_files_under(base: String, limit: Option<i64>, state: State<AppState>) -> Result<Vec<db::FileRow>, String> {
+    state.db.list_files_under(&base, limit.unwrap_or(5000)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
