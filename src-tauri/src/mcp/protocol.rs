@@ -64,7 +64,7 @@ pub fn err(id: Value, code: i32, message: &str) -> JsonRpcResponse {
 fn present_mockups_tool() -> Value {
     json!({
         "name": "present_mockups",
-        "description": "Present a set of mockups to the human for review. BLOCKS until the user approves, rejects, ranks, or picks one. Use this when you need a real human decision before continuing.",
+        "description": "Open a set of mockups inside the Platter app for human review. BLOCKS until the user approves, rejects, ranks, or picks one — then returns the decision. Only call this when the user explicitly asks to review mockups (e.g. 'show me the mockups', 'I want to review the designs'). Do NOT call automatically after generating files.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -174,7 +174,7 @@ fn request_iteration_tool() -> Value {
 fn open_folder_tool() -> Value {
     json!({
         "name": "open_folder",
-        "description": "Navigate the running Platter window to a specific folder, showing all mockups inside it. Use this immediately after creating mockup files so the user can see and review them without manual navigation. Also starts a rescan if the folder is new.",
+        "description": "Navigate the Platter app window to a specific folder so the user can browse files there. Only call when the user explicitly asks to 'open in Platter' or 'show the folder in Platter'. Do NOT call automatically after generating files — the user decides when to look.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -191,7 +191,7 @@ fn open_folder_tool() -> Value {
 fn create_share_tool() -> Value {
     json!({
         "name": "create_share",
-        "description": "Upload one or more files to Platter's public sharing service and return a single URL. For multiple files, returns a collection link showing all items in a slideshow/grid — one URL, per-item approve/reject/iterate, decisions carry back automatically. Supports HTML, PNG, JPG, SVG, PDF, GIF, WebP, MD. IMPORTANT: always show the returned 'url' field to the user as a clickable link in your response.",
+        "description": "Generate a shareable public link for one or more files — no Platter app required. Only call when the user explicitly asks for a link or URL (e.g. 'give me a link', 'share this', 'provide a URL'). Multiple files → one collection link with slideshow. Always show the returned 'url' to the user as a clickable link. Supports HTML, PNG, JPG, SVG, PDF, GIF, WebP, MD.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -220,7 +220,7 @@ fn create_share_tool() -> Value {
 fn list_recent_tool() -> Value {
     json!({
         "name": "list_recent",
-        "description": "List the most recently modified mockups, screenshots, or PDFs across all watched folders. Use to remind yourself what you've made recently before deciding what to make next.",
+        "description": "List the most recently modified mockups, screenshots, or PDFs across all watched folders. Use only when the user asks to see recent files or when you need to locate previously generated assets.",
         "inputSchema": {
             "type": "object",
             "properties": {

@@ -3,49 +3,49 @@
 :root {
   /* Fonts */
   --font-display: ui-serif, 'New York', 'Charter', Georgia, serif;
-  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
+  --font-body:    -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-ui:      -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, monospace;
 
-  /* Brand & accent */
+  /* Brand & accent — Anthropic coral/vermilion */
   --vermilion:       #C9472A;
   --vermilion-2:     #B43E22;
   --vermilion-soft:  rgba(201, 71, 42, 0.10);
-  --vermilion-fill:  rgba(201, 71, 42, 0.09);
-  --vermilion-line:  rgba(201, 71, 42, 0.35);
+  --vermilion-fill:  rgba(201, 71, 42, 0.08);
+  --vermilion-line:  rgba(201, 71, 42, 0.30);
 
-  --sage:       #6E7F58;
-  --sage-2:     #5C6B4A;
-  --sage-soft:  rgba(110, 127, 88, 0.14);
-  --brick:      #A04428;
-  --brick-soft: rgba(160, 68, 40, 0.10);
-  --gold:       #B58A3D;
+  --sage:       #4E7A5A;
+  --sage-2:     #3E6449;
+  --sage-soft:  rgba(78, 122, 90, 0.12);
+  --brick:      #9B3D26;
+  --brick-soft: rgba(155, 61, 38, 0.10);
+  --gold:       #A07830;
 
-  /* Backgrounds — warm cream palette */
-  --bg:         #F0EAE0;   /* App-level grouped background (sidebar) */
-  --paper:      #F8F3EB;   /* Main content area */
+  /* Backgrounds — clean neutral palette */
+  --bg:         #F3F3F2;   /* App-level grouped background (sidebar) */
+  --paper:      #FFFFFF;   /* Main content area */
   --surface:    #FFFFFF;   /* Cards, panels, modals */
-  --surface-2:  #FAF7F2;   /* Elevated surfaces */
+  --surface-2:  #F9F9F8;   /* Elevated surfaces */
 
-  /* Legacy aliases (keep for compatibility) */
-  --paper-2:    #F0E8D8;
-  --paper-3:    #E4D9C6;
+  --paper-2:    #EBEBEA;
+  --paper-3:    #E2E2E0;
 
-  /* Text — semantic hierarchy */
-  --ink:        #1B1714;          /* Primary label */
-  --ink-2:      rgba(27,23,20,0.72);  /* Secondary label */
-  --ink-3:      rgba(27,23,20,0.45);  /* Tertiary label */
-  --ink-4:      rgba(27,23,20,0.25);  /* Quaternary label */
+  /* Text — neutral hierarchy */
+  --ink:        #0A0A0A;
+  --ink-2:      rgba(10,10,10,0.70);
+  --ink-3:      rgba(10,10,10,0.42);
+  --ink-4:      rgba(10,10,10,0.22);
 
   /* Separators */
-  --line:        rgba(27, 23, 20, 0.10);
-  --line-strong: rgba(27, 23, 20, 0.18);
-  --line-soft:   rgba(27, 23, 20, 0.05);
+  --line:        rgba(0,0,0,0.08);
+  --line-strong: rgba(0,0,0,0.14);
+  --line-soft:   rgba(0,0,0,0.04);
 
   /* Dark / void surfaces (preview modal) */
-  --void:       #14110D;
-  --void-2:     #1F1A14;
-  --void-ink:   #E8DFCD;
-  --void-line:  rgba(232, 223, 205, 0.10);
+  --void:       #0F0F0F;
+  --void-2:     #1C1C1C;
+  --void-ink:   #F0F0EF;
+  --void-line:  rgba(255,255,255,0.08);
 
   /* Corner radii */
   --r-xs: 5px;
@@ -56,14 +56,60 @@
   --r-2xl: 28px;
 
   /* Shadows */
-  --shadow-xs: 0 1px 2px rgba(27, 23, 20, 0.04);
-  --shadow-sm: 0 1px 3px rgba(27, 23, 20, 0.07), 0 0 0 0.5px rgba(27, 23, 20, 0.06);
-  --shadow:    0 4px 16px rgba(27, 23, 20, 0.09), 0 0 0 0.5px rgba(27, 23, 20, 0.06);
-  --shadow-lg: 0 24px 60px rgba(27, 23, 20, 0.16), 0 0 0 0.5px rgba(27, 23, 20, 0.06);
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 0.5px rgba(0,0,0,0.06);
+  --shadow:    0 4px 16px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.06);
+  --shadow-lg: 0 24px 60px rgba(0,0,0,0.15), 0 0 0 0.5px rgba(0,0,0,0.06);
 
   /* Motion */
   --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ─────────────────────────────────────────────────────
+     SEMANTIC BUTTON TOKENS
+     Always use these — never reach for raw color values.
+     ───────────────────────────────────────────────────── */
+
+  /* Primary action (Download, Submit, Confirm, Slideshow…)
+     Website reference: #0A0A0A bg, white text              */
+  --btn-primary-bg:       var(--ink);
+  --btn-primary-fg:       #FFFFFF;
+  --btn-primary-hover-bg: #2A2A2A;
+
+  /* Default / secondary (toolbar buttons, ghost actions)   */
+  --btn-default-bg:       transparent;
+  --btn-default-fg:       var(--ink-2);
+  --btn-default-border:   var(--line-strong);
+  --btn-default-hover-bg: rgba(0,0,0,0.05);
+  --btn-default-hover-fg: var(--ink);
+
+  /* Positive decision — Approve                           */
+  --btn-approve-bg:         var(--sage-soft);
+  --btn-approve-fg:         var(--sage-2);
+  --btn-approve-border:     rgba(78,122,90,0.35);
+  --btn-approve-hover-bg:   var(--sage);
+  --btn-approve-hover-fg:   #F4F0E8;
+
+  /* Negative decision — Reject                            */
+  --btn-reject-bg:          var(--brick-soft);
+  --btn-reject-fg:          var(--brick);
+  --btn-reject-border:      rgba(155,61,38,0.35);
+  --btn-reject-hover-bg:    var(--brick);
+  --btn-reject-hover-fg:    #F4F0E8;
+
+  /* ─────────────────────────────────────────────────────
+     ACCENT (VERMILION) USAGE RULES
+     --vermilion is ONLY valid for:
+       • Active/selected indicator fills + text
+       • Section-label eyebrows & brand dots
+       • Card hover glow border
+       • Input / search focus ring
+     It is NOT a button background color.
+     ───────────────────────────────────────────────────── */
+  --accent:      var(--vermilion);
+  --accent-fill: var(--vermilion-fill);
+  --accent-line: var(--vermilion-line);
+  --accent-soft: var(--vermilion-soft);
 }
 
 *, *::before, *::after { box-sizing: border-box; }

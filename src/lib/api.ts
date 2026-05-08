@@ -28,6 +28,9 @@ export const api = {
   addRoot: (glob: string, label?: string) =>
     invoke<number>("add_root", { glob, label: label ?? null }),
   removeRoot: (id: number) => invoke<void>("remove_root", { id }),
+  listFilesUnder: (base: string) => invoke<FileRow[]>("list_files_under", { base }),
+  copyFilesTo: (paths: string[], destDir: string) =>
+    invoke<string[]>("copy_files_to", { paths, destDir }),
   toggleRoot: (id: number, enabled: boolean) =>
     invoke<void>("toggle_root", { id, enabled }),
   removeFile: (path: string) => invoke<void>("remove_file", { path }),

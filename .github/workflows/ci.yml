@@ -1,0 +1,101 @@
+name: CI
+
+# Runs on every PR and every push to main.
+# Gates: frontend must build, Rust must check + lint, tests must pass.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Frontend: TypeScript + Vite ──────────────────────────────────────────
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript + Vite build
+        run: npm run build
+
+  # ── Rust: check, clippy, test ────────────────────────────────────────────
+  rust:
+    name: Rust (${{ matrix.check }})
+    runs-on: macos-14
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [check, clippy, test]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Cargo registry + target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: cargo-ci-${{ runner.os }}-${{ matrix.check }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: |
+            cargo-ci-${{ runner.os }}-${{ matrix.check }}-
+            cargo-ci-${{ runner.os }}-
+
+      - name: cargo check
+        if: matrix.check == 'check'
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: cargo clippy
+        if: matrix.check == 'clippy'
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+      - name: cargo test
+        if: matrix.check == 'test'
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+  # ── Version sync check ───────────────────────────────────────────────────
+  versions:
+    name: Version sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: All three version files agree
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          TAURI=$(python3 -c "import json; print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
+          CARGO=$(grep '^version' src-tauri/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+
+          echo "package.json:        $PKG"
+          echo "tauri.conf.json:     $TAURI"
+          echo "src-tauri/Cargo.toml: $CARGO"
+
+          if [ "$PKG" != "$TAURI" ] || [ "$PKG" != "$CARGO" ]; then
+            echo ""
+            echo "::error::Version mismatch! Run scripts/bump-version.sh <version> to sync."
+            exit 1
+          fi
+          echo "✓ All versions agree: $PKG"

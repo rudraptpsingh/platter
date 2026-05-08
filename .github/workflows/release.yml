@@ -1,7 +1,9 @@
 name: Release
 
-# Pattern adapted from Slipstream — same Apple Developer ID secrets work
-# across the family of indie apps.
+# Triggered by a version tag (v*) or manually via workflow_dispatch.
+# Builds a universal macOS app, signs + notarizes if Apple secrets are present,
+# attaches DMG + tarball to the GitHub release, and deploys latest.json to
+# Cloudflare Pages so the in-app updater picks it up.
 #
 # Required GitHub Secrets:
 #   ── Tauri updater signature (REQUIRED for in-app auto-update) ──
@@ -18,6 +20,10 @@ name: Release
 #   ── Cloudflare Pages deploy of latest.json (REQUIRED for in-app auto-update reach) ──
 #   CLOUDFLARE_API_TOKEN          token with Pages:Edit permission
 #   CLOUDFLARE_ACCOUNT_ID         hex account id
+#
+# Release checklist (run before tagging):
+#   scripts/bump-version.sh <version>   — syncs package.json / tauri.conf.json / Cargo.toml
+#   git tag v<version> && git push origin v<version>
 
 on:
   push:
@@ -37,10 +43,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify version sync
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          TAURI=$(python3 -c "import json; print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
+          CARGO=$(grep '^version' src-tauri/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "package.json: $PKG  |  tauri.conf.json: $TAURI  |  Cargo.toml: $CARGO"
+          if [ "$PKG" != "$TAURI" ] || [ "$PKG" != "$CARGO" ]; then
+            echo "::error::Version mismatch — run scripts/bump-version.sh <version> before tagging."
+            exit 1
+          fi
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -164,13 +182,23 @@ jobs:
           [ ! -f "$TARBALL" ] && echo "::error::no .app.tar.gz emitted" && exit 1
           [ ! -f "$SIG_FILE" ] && echo "::error::no .sig emitted (TAURI_SIGNING_PRIVATE_KEY not set?)" && exit 1
           SIG=$(cat "$SIG_FILE")
-          VERSION="${GITHUB_REF_NAME#v}"
-          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/$(basename "$TARBALL")"
+          VERSION=$(node -p "require('./package.json').version")
+          REF_NAME="${GITHUB_REF_NAME:-v$VERSION}"
+          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/${REF_NAME}/$(basename "$TARBALL")"
           PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Pull release notes from docs/changelog.md if it exists, else use a link
+          NOTES="See https://github.com/${{ github.repository }}/releases/tag/${REF_NAME}"
+          if [ -f "docs/changelog.md" ]; then
+            # Extract the section for this version (between first two ## headings)
+            SECTION=$(awk "/^## v?${VERSION}/{found=1; next} found && /^## /{exit} found{print}" docs/changelog.md | head -10 | tr '\n' ' ' | sed 's/["\]/\\&/g')
+            [ -n "$SECTION" ] && NOTES="$SECTION"
+          fi
+
           cat > latest.json <<EOF
           {
             "version": "$VERSION",
-            "notes": "See https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF_NAME}",
+            "notes": "$NOTES",
             "pub_date": "$PUB_DATE",
             "platforms": {
               "darwin-aarch64": { "signature": "$SIG", "url": "$ASSET_URL" },
@@ -180,6 +208,7 @@ jobs:
           EOF
           cp "$TARBALL" .
           cp "$SIG_FILE" .
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           ls -la latest.json *.app.tar.gz *.sig
 
       - name: Upload artifacts (workflow_dispatch fallback)
@@ -206,13 +235,11 @@ jobs:
           generate_release_notes: true
 
       - name: Stage latest.json into landing/ for Cloudflare Pages
-        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           cp latest.json landing/latest.json
           ls -la landing/latest.json
 
-      - name: Deploy latest.json to Cloudflare Pages
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Deploy landing + latest.json to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -225,3 +252,4 @@ jobs:
             --project-name=platter \
             --branch=main \
             --commit-dirty=true
+          echo "✓ Deployed to https://platter.pages.dev — auto-updater endpoint live"

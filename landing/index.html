@@ -29,7 +29,8 @@
     <nav class="topnav">
       <a href="#how">How it works</a>
       <a href="#setup">Setup</a>
-      <a href="#usecases">Use cases</a>
+      <a href="#showcase">Showcase</a>
+      <a href="#pricing">Pricing</a>
       <a href="#mcp">MCP</a>
       <a href="https://github.com/rudraptpsingh/platter" target="_blank" rel="noreferrer">GitHub ↗</a>
     </nav>
@@ -63,8 +64,22 @@
             View on GitHub
           </a>
         </div>
+
+        <div class="brew-row">
+          <span class="brew-row__label">or via Homebrew</span>
+          <div class="inline-cmd">
+            <span class="inline-cmd__prompt">$</span>
+            <code class="inline-cmd__code" id="brewCmd">brew install --cask platter</code>
+            <button class="inline-cmd__copy" onclick="copyBrewCmd(this)">copy</button>
+          </div>
+        </div>
+
         <div class="hero__caption">
-          <span>v0.5</span><span class="dot"></span><span>macOS 11+</span><span class="dot"></span><span>auto-updating</span><span class="dot"></span><span>open source · free</span>
+          <a class="star-badge" href="https://github.com/rudraptpsingh/platter" target="_blank" rel="noreferrer" id="starBadge">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg>
+            <span id="starCount">—</span>
+          </a>
+          <span class="dot"></span><span>v0.5</span><span class="dot"></span><span>macOS 11+</span><span class="dot"></span><span>free for individuals</span>
         </div>
       </div>
 
@@ -224,6 +239,75 @@
   </div>
 </section>
 
+<!-- ─── Showcase ──────────────────────────────────── -->
+<section id="showcase" class="section">
+  <div class="container">
+    <div class="setup-header">
+      <div>
+        <span class="eyebrow">★ in the wild</span>
+        <h2 class="h2"><em>Real sessions.</em><br>Real decisions.</h2>
+      </div>
+      <p class="setup-lede">Every card below is a real Claude Code session that passed through platter. The agent made something. A human decided. Work continued.</p>
+    </div>
+
+    <div class="showcase-grid">
+
+      <article class="session-card">
+        <div class="session-card__header">
+          <span class="session-card__tag">design · html · pick-one</span>
+          <span class="session-card__verdict session-card__verdict--approved">✓ picked</span>
+        </div>
+        <h3 class="session-card__h">Landing page redesign</h3>
+        <p class="session-card__p">Told Claude to make 5 variants of a hero section. It generated 5 fully interactive HTML pages in 14 minutes. Called <code>present_mockups(pick-one)</code>. Pressed <kbd>3</kbd>. Done.</p>
+        <div class="session-card__meta">
+          <span>5 variants</span><span class="sdot"></span><span>14 min</span><span class="sdot"></span><span>1 keystroke to decide</span>
+        </div>
+      </article>
+
+      <article class="session-card">
+        <div class="session-card__header">
+          <span class="session-card__tag">share · async · stakeholder</span>
+          <span class="session-card__verdict session-card__verdict--approved">✓ approved</span>
+        </div>
+        <h3 class="session-card__h">Client sign-off while asleep</h3>
+        <p class="session-card__p">Generated a brand mockup, pressed <kbd>S</kbd> to share. Sent the link to the client over Slack. Woke up to a decision in the app. No email thread. No Figma invite.</p>
+        <div class="session-card__meta">
+          <span>1 file</span><span class="sdot"></span><span>reviewed in 3 hrs</span><span class="sdot"></span><span>zero back-and-forth</span>
+        </div>
+      </article>
+
+      <article class="session-card">
+        <div class="session-card__header">
+          <span class="session-card__tag">png · compare · regression</span>
+          <span class="session-card__verdict session-card__verdict--approved">✓ approved</span>
+        </div>
+        <h3 class="session-card__h">CSS change screenshot review</h3>
+        <p class="session-card__p">Agent captured before/after screenshots of a spacing change. ⌘-clicked both in the gallery to open Compare. The diff was obvious. Pressed <kbd>A</kbd>. PR merged.</p>
+        <div class="session-card__meta">
+          <span>2 screenshots</span><span class="sdot"></span><span>side-by-side</span><span class="sdot"></span><span>2 keystrokes</span>
+        </div>
+      </article>
+
+      <article class="session-card">
+        <div class="session-card__header">
+          <span class="session-card__tag">iteration · revise · mcp</span>
+          <span class="session-card__verdict session-card__verdict--approved">✓ approved on iter 2</span>
+        </div>
+        <h3 class="session-card__h">Revision loop in one session</h3>
+        <p class="session-card__p">First mockup: rejected with a note — "too much padding, wrong typeface." Claude read the rejection, adjusted, and called <code>present_mockups()</code> again. Second attempt approved. One uninterrupted Claude Code run.</p>
+        <div class="session-card__meta">
+          <span>2 iterations</span><span class="sdot"></span><span>1 session</span><span class="sdot"></span><span>no copy-paste</span>
+        </div>
+      </article>
+
+    </div>
+
+    <div class="showcase-foot">
+      <p>Building something with platter? <a href="https://github.com/rudraptpsingh/platter/discussions" target="_blank" rel="noreferrer">Share your session in Discussions →</a></p>
+    </div>
+  </div>
+</section>
+
 <!-- ─── MCP ─────────────────────────────────────────── -->
 <section id="mcp" class="section section--ink">
   <div class="container">
@@ -271,6 +355,82 @@
   </div>
 </section>
 
+<!-- ─── Pricing ──────────────────────────────────────── -->
+<section id="pricing" class="section">
+  <div class="container">
+    <div class="section-head section-head--center">
+      <span class="eyebrow">★ pricing</span>
+      <h2 class="h2">Free for individuals.<br><em>Always.</em></h2>
+      <p class="section-lede" style="text-align:center;margin:0 auto 0;">
+        Platter follows the same model as <a href="https://remotion.dev" target="_blank" rel="noreferrer" style="color:var(--vermilion)">Remotion</a>: free if you're an individual or a company of three or fewer people. Paid tiers for larger teams are in design — they'll arrive later in 2026.
+      </p>
+    </div>
+
+    <div class="pricing-grid">
+
+      <div class="pricing-card pricing-card--featured">
+        <div class="pricing-card__eyebrow">Free · forever</div>
+        <div class="pricing-card__price">$0</div>
+        <div class="pricing-card__tagline">For individuals and small teams</div>
+        <ul class="pricing-card__list">
+          <li>✓ Unlimited reviews &amp; decisions</li>
+          <li>✓ All five MCP tools</li>
+          <li>✓ All file types (HTML, PNG, PDF, SVG, MD)</li>
+          <li>✓ Async share links</li>
+          <li>✓ Revision loops</li>
+          <li>✓ Slideshow &amp; compare modes</li>
+          <li>✓ Local decision history (SQLite)</li>
+          <li>✓ Auto-updates</li>
+        </ul>
+        <div class="pricing-card__rule">
+          Free for: individuals · open source projects · companies with ≤&thinsp;3 people · evaluation use
+        </div>
+        <a class="btn btn--primary" href="https://github.com/rudraptpsingh/platter/releases" target="_blank" rel="noreferrer" style="width:100%;justify-content:center;margin-top:20px;">Download free</a>
+      </div>
+
+      <div class="pricing-card pricing-card--soon">
+        <div class="pricing-card__badge">Coming 2026</div>
+        <div class="pricing-card__eyebrow">Team</div>
+        <div class="pricing-card__price pricing-card__price--dim">—</div>
+        <div class="pricing-card__tagline">For 4–20 person companies</div>
+        <ul class="pricing-card__list pricing-card__list--dim">
+          <li>Everything in Free, plus:</li>
+          <li>· Shared team decision history</li>
+          <li>· Share link decisions sync to team</li>
+          <li>· Per-project decision exports</li>
+          <li>· Priority support</li>
+        </ul>
+        <div class="pricing-card__rule">
+          Required for companies with 4 or more employees
+        </div>
+      </div>
+
+      <div class="pricing-card pricing-card--soon">
+        <div class="pricing-card__badge">Coming 2026</div>
+        <div class="pricing-card__eyebrow">Company</div>
+        <div class="pricing-card__price pricing-card__price--dim">—</div>
+        <div class="pricing-card__tagline">For larger organizations</div>
+        <ul class="pricing-card__list pricing-card__list--dim">
+          <li>Everything in Team, plus:</li>
+          <li>· SSO / SAML</li>
+          <li>· Audit log</li>
+          <li>· Decision API access</li>
+          <li>· Dedicated support &amp; SLA</li>
+          <li>· Custom MCP tool configuration</li>
+        </ul>
+        <div class="pricing-card__rule">
+          Contact for pricing · custom terms available
+        </div>
+      </div>
+
+    </div>
+
+    <p class="pricing-note">
+      Not sure which tier applies? If you're an individual developer or work at a company with three or fewer people — you're free. No credit card, no account required. If you're at a larger company and want to track pricing announcements, <a href="https://github.com/rudraptpsingh/platter" target="_blank" rel="noreferrer">watch the repo</a>.
+    </p>
+  </div>
+</section>
+
 <!-- ─── Design ──────────────────────────────────────── -->
 <section id="design" class="section">
   <div class="container">
@@ -307,11 +467,12 @@
       <img src="icon.png" alt="" class="brand__mark" />
       <span class="brand__name">platter</span>
     </a>
-    <span class="foot__caption">authored by <a href="https://github.com/rudraptpsingh">rudraptpsingh</a> · open source · MIT</span>
+    <span class="foot__caption">by <a href="https://github.com/rudraptpsingh">rudraptpsingh</a> · open source · MIT</span>
     <nav class="foot__nav">
-      <a href="https://github.com/rudraptpsingh/platter">repo</a>
-      <a href="https://github.com/rudraptpsingh/platter/blob/main/docs/roadmap.md">roadmap</a>
-      <a href="https://github.com/rudraptpsingh/platter/blob/main/docs/NOTARIZATION.md">build</a>
+      <a href="https://github.com/rudraptpsingh/platter">GitHub</a>
+      <a href="https://github.com/rudraptpsingh/platter/discussions" target="_blank" rel="noreferrer">Discussions</a>
+      <a href="https://github.com/rudraptpsingh/platter/blob/main/docs/roadmap.md">Roadmap</a>
+      <a href="#pricing">Pricing</a>
     </nav>
   </div>
 </footer>
@@ -320,19 +481,38 @@
 function copyCmd(btn){
   const cmd = btn.closest('.cmd-block').querySelector('.cmd-block__cmd').innerText;
   navigator.clipboard.writeText(cmd).then(()=>{
-    const t = btn.innerText;
-    btn.innerText = 'copied';
+    const t = btn.innerText; btn.innerText = 'copied';
     setTimeout(()=>{ btn.innerText = t; }, 1400);
   });
 }
 function copySetupCmd(btn){
   const cmd = document.getElementById('setupCmd').innerText;
   navigator.clipboard.writeText(cmd).then(()=>{
-    const t = btn.innerText;
-    btn.innerText = 'copied';
+    const t = btn.innerText; btn.innerText = 'copied';
     setTimeout(()=>{ btn.innerText = t; }, 1400);
   });
 }
+function copyBrewCmd(btn){
+  navigator.clipboard.writeText('brew install --cask platter').then(()=>{
+    const t = btn.innerText; btn.innerText = 'copied';
+    setTimeout(()=>{ btn.innerText = t; }, 1400);
+  });
+}
+
+/* Live GitHub star count */
+fetch('https://api.github.com/repos/rudraptpsingh/platter')
+  .then(r => r.json())
+  .then(d => {
+    const n = d.stargazers_count;
+    if (typeof n === 'number') {
+      const el = document.getElementById('starCount');
+      if (el) el.textContent = n >= 1000 ? (n / 1000).toFixed(1) + 'k' : n;
+    }
+  })
+  .catch(() => {
+    const el = document.getElementById('starCount');
+    if (el) el.textContent = '★';
+  });
 </script>
 
 </body>

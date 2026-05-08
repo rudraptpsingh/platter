@@ -71,8 +71,8 @@
   transition: background 0.15s var(--ease-out);
 }
 .toast__btn:hover {
-  background: var(--vermilion);
-  border-color: var(--vermilion);
+  background: rgba(255, 253, 248, 0.16);
+  border-color: rgba(255, 253, 248, 0.30);
 }
 
 .toast__hint {

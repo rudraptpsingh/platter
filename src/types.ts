@@ -36,6 +36,13 @@ export type RootInfo = {
   kind_counts?: Record<string, number>;
 };
 
+export type RepoNode = {
+  name: string;
+  base_path: string;
+  count: number;
+  mtime: number;
+};
+
 export type ReviewMode = "approve_reject" | "rank" | "pick_one" | "iteration";
 
 export type ReviewRequest = {

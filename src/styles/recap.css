@@ -30,9 +30,10 @@
 }
 
 .recap__title {
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 38px;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 34px;
+  letter-spacing: -0.04em;
   line-height: 1;
   margin: 0 0 8px;
   color: var(--ink);
@@ -99,15 +100,15 @@
   gap: 6px;
   font-size: 12px;
   font-weight: 500;
-  border: 1px solid var(--vermilion);
-  background: var(--vermilion);
-  color: #FBF6EA;
+  border: 1px solid transparent;
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
   padding: 6px 12px;
   border-radius: var(--r-sm);
   cursor: pointer;
   transition: background 0.12s var(--ease-out);
 }
-.recap__printbtn:hover { background: var(--vermilion-2); border-color: var(--vermilion-2); }
+.recap__printbtn:hover { background: var(--btn-primary-hover-bg); border-color: transparent; }
 
 /* ─── Day sections ──────────────────────────────────────────────── */
 
@@ -127,9 +128,10 @@
 }
 
 .recap-day__title {
-  font-family: var(--font-display);
-  font-weight: 400;
-  font-size: 22px;
+  font-family: var(--font-ui);
+  font-weight: 650;
+  font-size: 18px;
+  letter-spacing: -0.03em;
   margin: 0;
   color: var(--ink);
 }
@@ -216,12 +218,13 @@
     margin-bottom: 18px;
   }
   .recap__cover-h {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-weight: 400;
-    font-size: 64px;
+    font-family: var(--font-ui);
+    font-style: normal;
+    font-weight: 700;
+    font-size: 60px;
+    letter-spacing: -0.05em;
     margin: 0 0 36px;
-    color: #111;
+    color: #0A0A0A;
   }
   .recap__cover-stats {
     display: inline-flex;
@@ -234,12 +237,13 @@
     align-items: center;
   }
   .recap__cover-stats strong {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-weight: 400;
+    font-family: var(--font-ui);
+    font-style: normal;
+    font-weight: 700;
     font-size: 48px;
+    letter-spacing: -0.04em;
     line-height: 1;
-    color: #111;
+    color: #0A0A0A;
   }
   .recap__cover-stats span {
     font-family: var(--font-mono);

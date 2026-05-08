@@ -35,3 +35,6 @@ mockups/v1/.review/
 *.swp
 .env
 .env.local
+
+# Local MCP dev config (points to debug binary)
+.mcp.json

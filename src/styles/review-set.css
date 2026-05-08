@@ -22,8 +22,8 @@
   position: relative;
   border-radius: var(--r-lg);
   overflow: hidden;
-  background: #FFFCF4;
-  box-shadow: 0 1px 2px rgba(27,23,20,0.05), 0 0 0 0.5px rgba(27,23,20,0.10);
+  background: #FFFFFF;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05), 0 0 0 0.5px rgba(0,0,0,0.10);
   display: flex;
   flex-direction: column;
 }
@@ -53,8 +53,8 @@
   margin-bottom: 4px;
 }
 .rs-hero__title {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
+  font-style: normal;
   font-size: 24px;
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -81,7 +81,7 @@
   letter-spacing: 0.08em;
   border: 0;
 }
-.rs-hero__open:hover { background: var(--vermilion); }
+.rs-hero__open:hover { background: var(--btn-primary-hover-bg); }
 
 .rs-hero__preview {
   height: 380px;
@@ -100,7 +100,7 @@
 
 /* Numbered children strip */
 .rs-strip {
-  background: rgba(27,23,20,0.025);
+  background: rgba(0,0,0,0.025);
   border: 0.5px solid var(--line);
   border-radius: var(--r-lg);
   padding: 14px 16px;
@@ -133,13 +133,13 @@
 }
 .rs-strip__row::-webkit-scrollbar { height: 6px; }
 .rs-strip__row::-webkit-scrollbar-thumb {
-  background: rgba(27,23,20,0.18);
+  background: rgba(0,0,0,0.18);
   border-radius: 100px;
 }
 
 .rs-card {
   flex: 0 0 180px;
-  background: #FFFCF4;
+  background: #FFFFFF;
   border-radius: var(--r);
   border: 0.5px solid var(--line);
   overflow: hidden;
@@ -150,7 +150,7 @@
 .rs-card:hover {
   transform: translateY(-1px);
   border-color: var(--vermilion-line);
-  box-shadow: 0 8px 22px rgba(27,23,20,0.08);
+  box-shadow: 0 8px 22px rgba(0,0,0,0.08);
 }
 
 .rs-card__thumb {
@@ -233,7 +233,7 @@
 /* ─── Plan side panel ─────────────────────────────── */
 
 .rs-plan {
-  background: rgba(27,23,20,0.025);
+  background: rgba(0,0,0,0.025);
   border-left: 0.5px solid var(--line);
   overflow-y: auto;
   padding: 22px 20px 32px;
@@ -269,8 +269,8 @@
 }
 
 .rs-plan h1, .rs-plan h2, .rs-plan h3, .rs-plan h4 {
-  font-family: var(--font-display);
-  font-style: italic;
+  font-family: var(--font-ui);
+  font-style: normal;
   font-weight: 400;
   color: var(--ink);
   margin: 18px 0 8px;
@@ -288,7 +288,7 @@
 .rs-plan code {
   font-family: var(--font-mono);
   font-size: 11px;
-  background: rgba(27,23,20,0.06);
+  background: rgba(0,0,0,0.06);
   padding: 1px 5px;
   border-radius: 3px;
   color: var(--ink);
@@ -314,7 +314,7 @@
   margin: 0 0 12px;
   padding: 6px 12px;
   border-left: 2px solid var(--vermilion);
-  background: rgba(27,23,20,0.025);
+  background: rgba(0,0,0,0.025);
   color: var(--ink-2);
   border-radius: 0 4px 4px 0;
 }

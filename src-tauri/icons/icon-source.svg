@@ -1,122 +1,54 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
-    <!-- Vermilion field — radial gradient: warmer top-left, deeper bottom-right -->
-    <radialGradient id="field" cx="34%" cy="30%" r="92%" fx="30%" fy="26%">
-      <stop offset="0%"   stop-color="#DD5235"/>
-      <stop offset="40%"  stop-color="#C9472A"/>
-      <stop offset="78%"  stop-color="#9C351D"/>
-      <stop offset="100%" stop-color="#5E1F0C"/>
+    <radialGradient id="bg" cx="38%" cy="32%" r="72%">
+      <stop offset="0%"  stop-color="#252018"/>
+      <stop offset="60%" stop-color="#181410"/>
+      <stop offset="100%" stop-color="#0C0A08"/>
     </radialGradient>
 
-    <!-- Cream paper -->
-    <radialGradient id="paper" cx="44%" cy="38%" r="80%">
-      <stop offset="0%"   stop-color="#FAF4E8"/>
-      <stop offset="62%"  stop-color="#F1EAD9"/>
-      <stop offset="100%" stop-color="#D8CBAE"/>
-    </radialGradient>
+    <linearGradient id="tile-tl" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#EDE8DF"/>
+    </linearGradient>
 
-    <!-- Ink for the letter — vermilion shifted darker so it reads "stamped on top" -->
-    <radialGradient id="ink" cx="48%" cy="40%" r="68%">
-      <stop offset="0%"   stop-color="#9A3420"/>
-      <stop offset="100%" stop-color="#6B2010"/>
-    </radialGradient>
-
-    <!-- High-frequency paper grain -->
-    <filter id="grain" x="0%" y="0%" width="100%" height="100%">
-      <feTurbulence type="fractalNoise" baseFrequency="2.6" numOctaves="2" stitchTiles="stitch" seed="7"/>
-      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.45 0"/>
+    <filter id="tile-shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
+      <feOffset dx="0" dy="4" result="off"/>
+      <feFlood flood-color="#000" flood-opacity="0.30"/>
+      <feComposite in2="off" operator="in" result="sh"/>
+      <feMerge><feMergeNode in="sh"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
 
-    <!-- Coarser fiber tooth -->
-    <filter id="tooth" x="0%" y="0%" width="100%" height="100%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch" seed="13"/>
-      <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 0"/>
-    </filter>
-
-    <!-- Pressed-paper drop shadow under the disc -->
-    <filter id="discShadow" x="-15%" y="-15%" width="130%" height="130%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="10"/>
-      <feOffset dx="0" dy="7" result="off"/>
-      <feFlood flood-color="#1A0805" flood-opacity="0.45"/>
-      <feComposite in2="off" operator="in"/>
-      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-
-    <!-- Letterpress impression: subtle dark halo around the ink, faintly blurred -->
-    <filter id="impression" x="-15%" y="-15%" width="130%" height="130%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="3.2" result="blur"/>
-      <feOffset in="blur" dx="0" dy="2.5" result="off"/>
-      <feFlood flood-color="#3A0E04" flood-opacity="0.30"/>
-      <feComposite in2="off" operator="in" result="halo"/>
-      <feMerge>
-        <feMergeNode in="halo"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-
-    <!-- Disc edge: imperfect, with falloff at the rim -->
-    <radialGradient id="edgeFalloff" cx="50%" cy="50%" r="50%">
-      <stop offset="0%"   stop-color="#fff" stop-opacity="1"/>
-      <stop offset="92%"  stop-color="#fff" stop-opacity="1"/>
-      <stop offset="98%"  stop-color="#fff" stop-opacity="0.55"/>
-      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
-    </radialGradient>
-    <mask id="discMask">
-      <circle cx="512" cy="512" r="362" fill="url(#edgeFalloff)"/>
-    </mask>
-
-    <!-- Field vignette -->
-    <radialGradient id="vignette" cx="50%" cy="50%" r="68%">
-      <stop offset="58%"  stop-color="#000" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#000" stop-opacity="0.34"/>
-    </radialGradient>
-
-    <!-- Top-left light wash -->
-    <radialGradient id="catchlight" cx="22%" cy="18%" r="44%">
-      <stop offset="0%"   stop-color="#fff" stop-opacity="0.11"/>
-      <stop offset="60%"  stop-color="#fff" stop-opacity="0.03"/>
-      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+    <radialGradient id="inner-glow" cx="38%" cy="36%" r="60%">
+      <stop offset="0%"  stop-color="#3A2E2A" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#0C0A09" stop-opacity="0"/>
     </radialGradient>
   </defs>
 
-  <!-- ─── The vermilion field ───────────────────────── -->
-  <rect width="1024" height="1024" fill="url(#field)"/>
-  <rect width="1024" height="1024" fill="#000" filter="url(#tooth)" opacity="0.06" style="mix-blend-mode:multiply"/>
-  <rect width="1024" height="1024" fill="url(#vignette)"/>
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="220" ry="220" fill="url(#bg)"/>
+  <rect width="1024" height="1024" rx="220" ry="220" fill="url(#inner-glow)" opacity="0.5"/>
 
-  <!-- ─── The stamped paper disc ─────────────────────── -->
-  <g transform="translate(508 514) rotate(-2.4) translate(-512 -512)" filter="url(#discShadow)">
+  <!-- 2×2 grid — tile 240px, gap 32px, total 512px, origin 256,256 -->
 
-    <!-- Paper disc with imperfect edge -->
-    <circle cx="512" cy="512" r="362" fill="url(#paper)" mask="url(#discMask)"/>
+  <!-- Top-left (full brightness) -->
+  <rect x="256" y="256" width="240" height="240" rx="20" ry="20"
+        fill="url(#tile-tl)" filter="url(#tile-shadow)"/>
 
-    <!-- Inner ring — the postal-seal echo -->
-    <circle cx="512" cy="512" r="332" fill="none"
-            stroke="#7E2716" stroke-width="1.6" stroke-opacity="0.42"/>
+  <!-- Top-right (52% opacity) -->
+  <rect x="528" y="256" width="240" height="240" rx="20" ry="20"
+        fill="white" opacity="0.52" filter="url(#tile-shadow)"/>
 
-    <!-- Outer hairline -->
-    <circle cx="512" cy="512" r="352" fill="none"
-            stroke="#7E2716" stroke-width="1.0" stroke-opacity="0.28"/>
+  <!-- Bottom-left (52% opacity) -->
+  <rect x="256" y="528" width="240" height="240" rx="20" ry="20"
+        fill="white" opacity="0.52" filter="url(#tile-shadow)"/>
 
-    <!-- The mark: italic serif "p" in real Hoefler Text -->
-    <g filter="url(#impression)">
-      <text x="512" y="650"
-            font-family="Hoefler Text, Charter, Times New Roman, Times, serif"
-            font-style="italic"
-            font-weight="400"
-            font-size="560"
-            text-anchor="middle"
-            fill="url(#ink)">p</text>
-    </g>
+  <!-- Bottom-right (22% opacity / ghost) -->
+  <rect x="528" y="528" width="240" height="240" rx="20" ry="20"
+        fill="white" opacity="0.22" filter="url(#tile-shadow)"/>
 
-    <!-- Subtle paper grain on disc only -->
-    <circle cx="512" cy="512" r="362" fill="#000"
-            filter="url(#grain)" opacity="0.05" mask="url(#discMask)"
-            style="mix-blend-mode:multiply"/>
-  </g>
-
-  <!-- ─── Final highlights ───────────────────────────── -->
-  <rect width="1024" height="1024" fill="url(#catchlight)"/>
-  <rect width="1024" height="1024" fill="#000" filter="url(#grain)" opacity="0.035" style="mix-blend-mode:multiply"/>
+  <!-- Subtle border highlight -->
+  <rect width="1024" height="1024" rx="220" ry="220"
+        fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="2"/>
 </svg>

@@ -34,7 +34,7 @@
   margin-bottom: 10px;
 }
 .consent-title {
-  font-family: var(--font-display);
+  font-family: var(--font-ui);
   font-style: normal;
   font-weight: 400;
   font-size: 36px;
@@ -111,8 +111,8 @@
   margin-left: auto;
 }
 .consent-btn--primary:hover {
-  background: var(--vermilion);
-  border-color: var(--vermilion);
+  background: var(--btn-primary-hover-bg);
+  border-color: var(--btn-primary-hover-bg);
 }
 .consent-btn--ghost {
   background: transparent;

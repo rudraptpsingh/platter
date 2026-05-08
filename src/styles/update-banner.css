@@ -47,9 +47,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-display);
-  font-style: italic;
-  font-size: 16px;
+  font-family: var(--font-ui);
+  font-style: normal;
+  font-weight: 650;
+  font-size: 14px;
+  letter-spacing: -0.01em;
   flex-shrink: 0;
   color: var(--paper);
   background: var(--vermilion);
@@ -108,8 +110,8 @@
   border-color: var(--ink);
 }
 .update-banner__btn--primary:hover {
-  background: var(--vermilion);
-  border-color: var(--vermilion);
+  background: var(--btn-primary-hover-bg);
+  border-color: var(--btn-primary-hover-bg);
 }
 .update-banner__btn--ghost {
   background: transparent;

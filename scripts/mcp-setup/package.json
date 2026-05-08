@@ -1,0 +1,17 @@
+{
+  "name": "platter-mcp-setup",
+  "version": "0.5.0",
+  "description": "One-command setup to register platter as a Claude Code MCP server",
+  "main": "index.js",
+  "bin": {
+    "platter-mcp-setup": "./index.js"
+  },
+  "scripts": {
+    "test": "node index.js --dry-run"
+  },
+  "keywords": ["platter", "mcp", "claude", "claude-code", "human-in-the-loop"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}

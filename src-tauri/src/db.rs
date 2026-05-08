@@ -232,6 +232,39 @@ impl Db {
         Ok(rows)
     }
 
+    pub fn list_files_under(&self, base: &str) -> Result<Vec<FileRow>> {
+        let pattern = format!("{}/%", base.trim_end_matches('/'));
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare(
+            r#"
+            SELECT id, path, root_id, kind, size, mtime, created_at, last_seen,
+                   decision, decision_note, decided_at
+            FROM files
+            WHERE path LIKE ?
+            ORDER BY mtime DESC
+            "#,
+        )?;
+        let rows = stmt
+            .query_map(params![pattern], |r| {
+                Ok(FileRow {
+                    id: r.get(0)?,
+                    path: r.get(1)?,
+                    root_id: r.get(2)?,
+                    kind: r.get(3)?,
+                    size: r.get(4)?,
+                    mtime: r.get(5)?,
+                    created_at: r.get(6)?,
+                    last_seen: r.get(7)?,
+                    decision: r.get(8)?,
+                    decision_note: r.get(9)?,
+                    decided_at: r.get(10)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
+    }
+
     pub fn list_subdirs(&self, dir: &str) -> Result<Vec<(String, i64)>> {
         // Find unique direct subdirs of `dir` based on file paths
         let pattern = format!("{}/%/%", dir.trim_end_matches('/'));

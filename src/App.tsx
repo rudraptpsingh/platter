@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
   isPermissionGranted,
   requestPermission,
   sendNotification,
 } from "@tauri-apps/plugin-notification";
-import type { FileRow, FilterDecision, FilterKind, ReviewRequest, RootInfo, TreeNode } from "./types";
+import type { FileRow, FilterDecision, FilterKind, RepoNode, ReviewRequest, TreeNode } from "./types";
 import { api, basename, relativeTime } from "./lib/api";
 import { loadGitHubUser, type GitHubUser } from "./lib/github";
-import { FolderTree } from "./components/FolderTree";
 import { Card } from "./components/Card";
 import { PreviewModal } from "./components/PreviewModal";
 import { ReviewModal } from "./components/ReviewModal";
@@ -21,7 +21,6 @@ import { ToastProvider, useToast } from "./components/Toast";
 import { Popover, PopoverMenu } from "./components/Popover";
 import { CompareModal } from "./components/CompareModal";
 import { RecapView } from "./components/RecapView";
-import appIcon from "./assets/icon-32.png";
 import { Slideshow } from "./components/Slideshow";
 import { SharedLinksView } from "./components/SharedLinksView";
 import { detectReviewSet } from "./lib/review-set";
@@ -35,7 +34,7 @@ import "./styles/app.css";
 import "./styles/cards.css";
 import "./styles/compare-modal.css";
 
-type View = "home" | "folder" | "search" | "decisions" | "recap" | "shared";
+type View = "home" | "folder" | "repo" | "search" | "decisions" | "recap" | "shared";
 type DecisionsFilter = "all" | "approved" | "rejected";
 
 export default function App() {
@@ -46,8 +45,82 @@ export default function App() {
   );
 }
 
+function extractRepoBase(path: string): string | null {
+  const parts = path.split("/");
+  const githubIdx = parts.indexOf("github");
+  if (githubIdx >= 0 && githubIdx + 1 < parts.length && parts[githubIdx + 1]) {
+    return parts.slice(0, githubIdx + 2).join("/");
+  }
+  return null;
+}
+
+function deriveRepos(tree: TreeNode[]): RepoNode[] {
+  const map = new Map<string, { name: string; count: number; mtime: number }>();
+  function walk(node: TreeNode) {
+    if (!node.path.includes("*")) {
+      const base = extractRepoBase(node.path);
+      if (base) {
+        const existing = map.get(base);
+        if (existing) {
+          existing.count += node.count;
+          if (node.mtime > existing.mtime) existing.mtime = node.mtime;
+        } else {
+          const name = base.split("/").pop() ?? base;
+          map.set(base, { name, count: node.count, mtime: node.mtime });
+        }
+      }
+    }
+    for (const child of node.children) walk(child);
+  }
+  for (const root of tree) {
+    for (const child of root.children) walk(child);
+  }
+  return Array.from(map.entries())
+    .map(([base_path, { name, count, mtime }]) => ({ name, base_path, count, mtime }))
+    .sort((a, b) => b.mtime - a.mtime);
+}
+
+function kindFromPath(p: string): string {
+  const ext = p.slice(p.lastIndexOf(".") + 1).toLowerCase();
+  if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "tiff", "svg"].includes(ext)) return "img";
+  if (ext === "html" || ext === "htm") return "html";
+  if (ext === "pdf") return "pdf";
+  if (ext === "md") return "md";
+  return "unknown";
+}
+
+function isVisual(p: string): boolean {
+  const k = kindFromPath(p);
+  return k === "img" || k === "html" || k === "pdf";
+}
+
+function makeDroppedFileRow(p: string): FileRow {
+  return {
+    id: -1,
+    path: p,
+    root_id: -1,
+    kind: kindFromPath(p),
+    size: 0,
+    mtime: Math.floor(Date.now() / 1000),
+    created_at: Math.floor(Date.now() / 1000),
+    last_seen: Math.floor(Date.now() / 1000),
+    decision: null,
+    decision_note: null,
+    decided_at: null,
+  };
+}
+
+function extractWorktrees(files: FileRow[]): string[] {
+  const re = /\/.claude\/worktrees\/([^/]+)\//;
+  const branches = new Set<string>();
+  for (const f of files) {
+    const m = f.path.match(re);
+    if (m) branches.add(m[1]);
+  }
+  return Array.from(branches).sort();
+}
+
 function AppInner() {
-  const [tree, setTree] = useState<TreeNode[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [view, setView] = useState<View>("home");
   const [files, setFiles] = useState<FileRow[]>([]);
@@ -68,14 +141,23 @@ function AppInner() {
   const [scanning, setScanning] = useState(true);
   const [showConsent, setShowConsent] = useState(false);
   const [lastScan, setLastScan] = useState(Date.now() / 1000);
-  const [roots, setRoots] = useState<RootInfo[]>([]);
+  const [repos, setRepos] = useState<RepoNode[]>([]);
+  const [activeRepo, setActiveRepo] = useState<RepoNode | null>(null);
+  const [worktreeFilter, setWorktreeFilter] = useState<string | null>(null);
   const [githubUser, setGitHubUser] = useState<GitHubUser | null>(null);
   const [sharedCount, setSharedCount] = useState(0);
+  const [dropHovering, setDropHovering] = useState(false);
+  const [dropPaths, setDropPaths] = useState<string[]>([]);
 
   const refreshTree = useCallback(async () => {
     const t = await api.listTree();
-    setTree(t);
-    api.listRootInfo().then(setRoots).catch(() => {});
+    setRepos(deriveRepos(t));
+  }, []);
+
+  const refreshRepoFiles = useCallback(async (repo: RepoNode | null) => {
+    if (!repo) { setFiles([]); return; }
+    const fs = await api.listFilesUnder(repo.base_path);
+    setFiles(fs);
   }, []);
 
   const refreshRecent = useCallback(async () => {
@@ -357,10 +439,17 @@ function AppInner() {
     return () => { unlisten.then((u) => u()); };
   }, []);
 
-  // Re-fetch folder files when active path changes
+  // Re-fetch folder files when active path changes (folder view only)
   useEffect(() => {
+    if (view !== "folder") return;
     refreshFiles(activePath);
-  }, [activePath, refreshFiles]);
+  }, [activePath, view, refreshFiles]);
+
+  // Re-fetch repo files when active repo changes
+  useEffect(() => {
+    if (view !== "repo") return;
+    refreshRepoFiles(activeRepo);
+  }, [activeRepo, view, refreshRepoFiles]);
 
   // Navigate to initial folder if app was launched with a path arg (--folder)
   useEffect(() => {
@@ -387,26 +476,24 @@ function AppInner() {
 
   // Live updates
   useEffect(() => {
-    const unlistenChanged = listen("platter:files-changed", () => {
+    const refresh = () => {
       refreshTree();
       refreshRecent();
       refreshDecisionCounts();
-      refreshFiles(activePath);
+      if (view === "folder") refreshFiles(activePath);
+      if (view === "repo") refreshRepoFiles(activeRepo);
       setLastScan(Date.now() / 1000);
-    });
+    };
+    const unlistenChanged = listen("platter:files-changed", refresh);
     const unlistenScan = listen("platter:scan-complete", () => {
       setScanning(false);
-      refreshTree();
-      refreshRecent();
-      refreshDecisionCounts();
-      refreshFiles(activePath);
-      setLastScan(Date.now() / 1000);
+      refresh();
     });
     return () => {
       unlistenChanged.then((u) => u());
       unlistenScan.then((u) => u());
     };
-  }, [activePath, refreshFiles, refreshRecent, refreshTree]);
+  }, [view, activePath, activeRepo, refreshFiles, refreshRepoFiles, refreshRecent, refreshTree]);
 
   // Global search (debounced)
   useEffect(() => {
@@ -435,11 +522,19 @@ function AppInner() {
       if (filterDecision === "approved" && f.decision !== "approved") return false;
       if (filterDecision === "rejected" && f.decision !== "rejected") return false;
       if (filterDecision === "undecided" && f.decision !== null) return false;
-      // local search applies only inside a folder
-      if (view === "folder" && search && !basename(f.path).toLowerCase().includes(search.toLowerCase())) return false;
+      // local search applies inside a folder or repo
+      if ((view === "folder" || view === "repo") && search && !basename(f.path).toLowerCase().includes(search.toLowerCase())) return false;
+      // worktree filter applies in repo view
+      if (view === "repo" && worktreeFilter !== null) {
+        if (worktreeFilter === "__main__") {
+          if (f.path.includes("/.claude/worktrees/")) return false;
+        } else {
+          if (!f.path.includes(`/.claude/worktrees/${worktreeFilter}/`)) return false;
+        }
+      }
       return true;
     });
-  }, [sourceFiles, filterKind, filterDecision, search, view]);
+  }, [sourceFiles, filterKind, filterDecision, search, view, worktreeFilter]);
 
   useEffect(() => {
     filteredFilesRef.current = filteredFiles;
@@ -474,6 +569,8 @@ function AppInner() {
 
   const handleSelectFolder = useCallback((path: string) => {
     setActivePath(path);
+    setActiveRepo(null);
+    setWorktreeFilter(null);
     setView("folder");
     setSearch("");
   }, []);
@@ -481,6 +578,8 @@ function AppInner() {
   const handleHome = useCallback(() => {
     setView("home");
     setActivePath(null);
+    setActiveRepo(null);
+    setWorktreeFilter(null);
     setSearch("");
   }, []);
 
@@ -503,12 +602,16 @@ function AppInner() {
   const handleRecapView = useCallback(() => {
     setView("recap");
     setActivePath(null);
+    setActiveRepo(null);
+    setWorktreeFilter(null);
     setSearch("");
   }, []);
 
   const handleSharedView = useCallback(() => {
     setView("shared");
     setActivePath(null);
+    setActiveRepo(null);
+    setWorktreeFilter(null);
     setSearch("");
   }, []);
 
@@ -516,6 +619,8 @@ function AppInner() {
     (filter: DecisionsFilter) => {
       setView("decisions");
       setActivePath(null);
+      setActiveRepo(null);
+      setWorktreeFilter(null);
       setSearch("");
       setDecisionsFilter(filter);
       loadDecisions(filter);
@@ -525,14 +630,86 @@ function AppInner() {
 
   const handleSearchChange = useCallback((s: string) => {
     setSearch(s);
-    if (view !== "folder") {
+    if (view !== "folder" && view !== "repo") {
       setView(s.trim() === "" ? "home" : "search");
     }
   }, [view]);
 
+  const handleSelectRepo = useCallback((repo: RepoNode) => {
+    setActiveRepo(repo);
+    setActivePath(null);
+    setView("repo");
+    setSearch("");
+    setWorktreeFilter(null);
+  }, []);
+
+  const handleDrop = useCallback((paths: string[]) => {
+    const visual = paths.filter(isVisual);
+    if (visual.length === 0) {
+      toast.show({ message: "No visual files in dropped items", tone: "info" });
+      return;
+    }
+    const rows = visual.map(makeDroppedFileRow);
+    if (rows.length === 1) {
+      setPreviewFile(rows[0]);
+    } else {
+      setSlideshow({ files: rows, startIndex: 0 });
+    }
+    if (activeRepo) {
+      const destDir = `${activeRepo.base_path}/mockups`;
+      toast.show({
+        message: `${visual.length} file${visual.length > 1 ? "s" : ""} dropped`,
+        tone: "info",
+        ttl: 12000,
+        action: {
+          label: `Add to ${activeRepo.name}`,
+          onClick: async () => {
+            try {
+              await api.copyFilesTo(visual, destDir);
+              await api.rescan();
+              toast.show({ message: `Added to ${activeRepo.name}/mockups`, tone: "ok" });
+            } catch (e) {
+              toast.show({ message: `Copy failed: ${e}`, tone: "warn" });
+            }
+          },
+        },
+      });
+    } else {
+      toast.show({
+        message: `${visual.length} file${visual.length > 1 ? "s" : ""} opened`,
+        tone: "info",
+      });
+    }
+  }, [activeRepo, toast]);
+
+  // File drag-drop via Tauri
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    getCurrentWebview().onDragDropEvent((event) => {
+      const p = event.payload;
+      if (p.type === "enter" || p.type === "over") {
+        const paths = "paths" in p ? p.paths : [];
+        setDropPaths(paths as string[]);
+        setDropHovering(true);
+      } else if (p.type === "drop" && "paths" in p) {
+        setDropHovering(false);
+        setDropPaths([]);
+        handleDrop(p.paths as string[]);
+      } else {
+        setDropHovering(false);
+        setDropPaths([]);
+      }
+    }).then((fn) => { unlisten = fn; }).catch(() => {});
+    return () => unlisten?.();
+  }, [handleDrop]);
+
   const refreshAfterDecision = useCallback(async () => {
     if (view === "folder" && activePath) {
       const fs = await api.listFiles(activePath);
+      setFiles(fs);
+    }
+    if (view === "repo" && activeRepo) {
+      const fs = await api.listFilesUnder(activeRepo.base_path);
       setFiles(fs);
     }
     refreshRecent();
@@ -546,14 +723,14 @@ function AppInner() {
     }
     setPreviewFile((prev) => {
       if (!prev) return prev;
-      const all = view === "folder" ? files
+      const all = view === "folder" || view === "repo" ? files
         : view === "search" ? searchHits
         : view === "decisions" ? decisionsList
         : recent;
       const fresh = all.find((x) => x.path === prev.path);
       return fresh ?? prev;
     });
-  }, [activePath, view, search, decisionsFilter, files, searchHits, recent, decisionsList, refreshRecent, refreshDecisionCounts, loadDecisions]);
+  }, [activePath, activeRepo, view, search, decisionsFilter, files, searchHits, recent, decisionsList, refreshRecent, refreshDecisionCounts, loadDecisions]);
 
   // Called by PreviewModal when the user makes (or changes) a decision.
   // We get the path and the new decision; the previous one is on the file
@@ -583,14 +760,16 @@ function AppInner() {
     [previewFile, files, recent, refreshAfterDecision, toast],
   );
 
+  const worktrees = useMemo(() => extractWorktrees(files), [files]);
+
   return (
     <div className="app">
       <Sidebar
-        tree={tree}
-        activePath={activePath}
+        repos={repos}
+        activeRepo={activeRepo}
         view={view}
         onHome={handleHome}
-        onSelect={handleSelectFolder}
+        onSelectRepo={handleSelectRepo}
         onDecisionsView={handleDecisionsView}
         onRecapView={handleRecapView}
         onSharedView={handleSharedView}
@@ -598,11 +777,6 @@ function AppInner() {
         decisionsFilter={decisionsFilter}
         decisionCounts={decisionCounts}
         scanning={scanning}
-        roots={roots}
-        onRemoveRoot={async (id) => {
-          await api.removeRoot(id);
-          await refreshTree();
-        }}
         githubUser={githubUser}
         onGitHubSignIn={() => api.startGitHubOAuth().catch(console.error)}
         onGitHubSignOut={() => {
@@ -616,6 +790,7 @@ function AppInner() {
         <Toolbar
           view={view}
           activePath={activePath}
+          activeRepo={activeRepo}
           stats={{ total: sourceFiles.length, newCount, lastScan }}
           search={search}
           onSearch={handleSearchChange}
@@ -632,6 +807,9 @@ function AppInner() {
               : undefined
           }
           decisionsFilter={decisionsFilter}
+          worktrees={worktrees}
+          worktreeFilter={worktreeFilter}
+          onWorktreeFilter={setWorktreeFilter}
         />
         )}
 
@@ -783,6 +961,25 @@ function AppInner() {
 
         <UpdateBanner />
 
+        {dropHovering && (
+          <div className="drop-overlay">
+            <div className="drop-overlay__inner">
+              <svg className="drop-overlay__icon" width="40" height="40" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3v13M7 11l5 5 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M4 20h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+              </svg>
+              <div className="drop-overlay__label">
+                {dropPaths.filter(isVisual).length > 0
+                  ? `Open ${dropPaths.filter(isVisual).length} file${dropPaths.filter(isVisual).length > 1 ? "s" : ""}`
+                  : "Drop files to open"}
+              </div>
+              {activeRepo && (
+                <div className="drop-overlay__hint">or add to {activeRepo.name}</div>
+              )}
+            </div>
+          </div>
+        )}
+
         {showConsent && (
           <PrivacyConsent
             onDecide={(choice) => {
@@ -800,12 +997,14 @@ function AppInner() {
   );
 }
 
+const REPO_COLORS = ["#4A6741", "#5A4A7A", "#7A5A3A", "#3A5A6A", "#6A3A5A"];
+
 function Sidebar({
-  tree,
-  activePath,
+  repos,
+  activeRepo,
   view,
   onHome,
-  onSelect,
+  onSelectRepo,
   onDecisionsView,
   onRecapView,
   onSharedView,
@@ -813,17 +1012,15 @@ function Sidebar({
   decisionsFilter,
   decisionCounts,
   scanning,
-  roots,
-  onRemoveRoot,
   githubUser,
   onGitHubSignIn,
   onGitHubSignOut,
 }: {
-  tree: TreeNode[];
-  activePath: string | null;
+  repos: RepoNode[];
+  activeRepo: RepoNode | null;
   view: View;
   onHome: () => void;
-  onSelect: (p: string) => void;
+  onSelectRepo: (r: RepoNode) => void;
   onDecisionsView: (filter: DecisionsFilter) => void;
   onRecapView: () => void;
   onSharedView: () => void;
@@ -831,20 +1028,29 @@ function Sidebar({
   decisionsFilter: DecisionsFilter;
   decisionCounts: { approved: number; rejected: number };
   scanning: boolean;
-  roots: RootInfo[];
-  onRemoveRoot: (id: number) => void;
   githubUser: GitHubUser | null;
   onGitHubSignIn: () => void;
   onGitHubSignOut: () => void;
 }) {
-  const totalFiles = tree.reduce((acc, t) => acc + t.count, 0);
+  const totalFiles = repos.reduce((acc, r) => acc + r.count, 0);
   return (
     <aside className="sidebar">
-      {/* Empty drag strip — reserved exclusively for macOS traffic lights */}
       <div className="titlebar-drag" />
-      {/* Brand section sits below the traffic lights */}
       <div className="sidebar__head">
-        <img src={appIcon} width={22} height={22} alt="" className="sidebar__app-icon" />
+        {/* Platter logomark — 2×2 grid on dark ground */}
+        <svg className="sidebar__logomark" aria-hidden="true"
+             width="20" height="20" viewBox="0 0 20 20" fill="none"
+             xmlns="http://www.w3.org/2000/svg">
+          <rect width="20" height="20" rx="4.5" fill="#0F0C0B"/>
+          {/* Top-left — full white */}
+          <rect x="4"  y="4"  width="5.5" height="5.5" rx="1" fill="white"/>
+          {/* Top-right — 52% */}
+          <rect x="10.5" y="4"  width="5.5" height="5.5" rx="1" fill="white" opacity="0.52"/>
+          {/* Bottom-left — 52% */}
+          <rect x="4"  y="10.5" width="5.5" height="5.5" rx="1" fill="white" opacity="0.52"/>
+          {/* Bottom-right — 22% ghost */}
+          <rect x="10.5" y="10.5" width="5.5" height="5.5" rx="1" fill="white" opacity="0.22"/>
+        </svg>
         <span className="sidebar__brand">platter</span>
       </div>
       <div className="sidebar__scroll">
@@ -853,41 +1059,38 @@ function Sidebar({
           onClick={onHome}
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path
-              d="M2 7l5-5 5 5M3 6.5V12h8V6.5"
-              stroke="currentColor"
-              strokeWidth="1.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            <path d="M2 7l5-5 5 5M3 6.5V12h8V6.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span className="home-row__label">Recent</span>
-          <span className="tree-row__count" style={{ marginLeft: "auto" }}>
-            {totalFiles}
-          </span>
+          <span className="tree-row__count" style={{ marginLeft: "auto" }}>{totalFiles}</span>
         </div>
 
-        <FolderTree nodes={tree} activePath={activePath} onSelect={onSelect} roots={roots} onRemoveRoot={onRemoveRoot} />
+        {repos.length > 0 && (
+          <>
+            <div className="tree-section">Repos</div>
+            {repos.map((repo, idx) => (
+              <div
+                key={repo.base_path}
+                className={`tree-row ${view === "repo" && activeRepo?.base_path === repo.base_path ? "tree-row--active" : ""}`}
+                onClick={() => onSelectRepo(repo)}
+                title={repo.base_path}
+              >
+                <span className="tree-row__project-dot" style={{ background: REPO_COLORS[idx % REPO_COLORS.length] }} />
+                <span className="tree-row__label">{repo.name}</span>
+                <span className="tree-row__count">{repo.count}</span>
+              </div>
+            ))}
+          </>
+        )}
 
         <div className="tree-section">Views</div>
-        <div
-          className={`tree-row ${view === "recap" ? "tree-row--active" : ""}`}
-          onClick={onRecapView}
-        >
+        <div className={`tree-row ${view === "recap" ? "tree-row--active" : ""}`} onClick={onRecapView}>
           <svg className="tree-row__icon" width="13" height="13" viewBox="0 0 14 14" fill="none">
-            <path
-              d="M2 11h2V6H2v5zm4 0h2V3H6v8zm4 0h2V8h-2v3z"
-              stroke="currentColor"
-              strokeWidth="1.1"
-              strokeLinejoin="round"
-            />
+            <path d="M2 11h2V6H2v5zm4 0h2V3H6v8zm4 0h2V8h-2v3z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
           </svg>
           <span className="tree-row__label">Recap</span>
         </div>
-        <div
-          className={`tree-row ${view === "shared" ? "tree-row--active" : ""}`}
-          onClick={onSharedView}
-        >
+        <div className={`tree-row ${view === "shared" ? "tree-row--active" : ""}`} onClick={onSharedView}>
           <svg className="tree-row__icon" width="13" height="13" viewBox="0 0 14 14" fill="none">
             <circle cx="3" cy="7" r="1.8" stroke="currentColor" strokeWidth="1.1"/>
             <circle cx="11" cy="3" r="1.8" stroke="currentColor" strokeWidth="1.1"/>
@@ -895,9 +1098,7 @@ function Sidebar({
             <path d="M4.7 6.1L9.3 3.9M4.7 7.9L9.3 10.1" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/>
           </svg>
           <span className="tree-row__label">Shared links</span>
-          {sharedCount > 0 && (
-            <span className="tree-row__count">{sharedCount}</span>
-          )}
+          {sharedCount > 0 && <span className="tree-row__count">{sharedCount}</span>}
         </div>
 
         <div className="tree-section">Decisions</div>
@@ -939,11 +1140,7 @@ function Sidebar({
           <div className="sidebar__footer-sub">{totalFiles} files indexed</div>
         </div>
         <div className="sidebar__footer-github">
-          <GitHubFooter
-            githubUser={githubUser}
-            onSignIn={onGitHubSignIn}
-            onSignOut={onGitHubSignOut}
-          />
+          <GitHubFooter githubUser={githubUser} onSignIn={onGitHubSignIn} onSignOut={onGitHubSignOut} />
         </div>
       </div>
     </aside>
@@ -964,11 +1161,16 @@ function GitHubFooter({
 
   if (!githubUser) {
     return (
-      <button className="sidebar__github-signin" onClick={onSignIn}>
-        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+      <button
+        className="sidebar__github-signin"
+        onClick={onSignIn}
+        title="Optional — shows your @username on share links"
+      >
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style={{ opacity: 0.7 }}>
           <path d="M8 .2C3.6.2 0 3.8 0 8.2c0 3.5 2.3 6.5 5.5 7.5.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1.1-2.7-1.1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8.6-.2 1.3-.3 2-.3s1.4.1 2 .3c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.3.2.5.7.5 1.4v2.1c0 .2.1.5.6.4 3.2-1 5.5-4 5.5-7.5C16 3.8 12.4.2 8 .2z"/>
         </svg>
-        Sign in with GitHub
+        <span>Connect GitHub</span>
+        <span className="sidebar__github-optional">optional</span>
       </button>
     );
   }
@@ -1026,6 +1228,7 @@ function cleanPathParts(path: string): string[] {
 function Toolbar({
   view,
   activePath,
+  activeRepo,
   stats,
   search,
   onSearch,
@@ -1038,9 +1241,13 @@ function Toolbar({
   onOpenSettings,
   onPlaySlideshow,
   decisionsFilter,
+  worktrees,
+  worktreeFilter,
+  onWorktreeFilter,
 }: {
   view: View;
   activePath: string | null;
+  activeRepo: RepoNode | null;
   stats: { total: number; newCount: number; lastScan: number };
   search: string;
   onSearch: (s: string) => void;
@@ -1056,6 +1263,9 @@ function Toolbar({
   onOpenSettings: () => void;
   onPlaySlideshow?: () => void;
   decisionsFilter: DecisionsFilter;
+  worktrees: string[];
+  worktreeFilter: string | null;
+  onWorktreeFilter: (wt: string | null) => void;
 }) {
   const parts = activePath ? cleanPathParts(activePath) : [];
 
@@ -1074,8 +1284,10 @@ function Toolbar({
       : "All decisions";
     leadingTitle = <span className="crumb__current">{label}</span>;
     leadingSub = `${stats.total} decision${stats.total === 1 ? "" : "s"}`;
+  } else if (view === "repo" && activeRepo) {
+    leadingTitle = <span className="crumb__current">{activeRepo.name}</span>;
+    leadingSub = `${stats.total} files${stats.newCount > 0 ? ` · ${stats.newCount} new` : ""}`;
   } else if (parts.length > 0) {
-    // Show at most 1 parent segment before the current dir — keeps the breadcrumb compact
     const parentPart = parts.length > 1 ? parts[parts.length - 2] : null;
     leadingTitle = (
       <>
@@ -1144,6 +1356,39 @@ function Toolbar({
       </div>
 
       <div className="toolbar__sub">
+        {view === "repo" && worktrees.length > 0 && (
+          <>
+            <div className="filterbar filterbar--worktree">
+              <button
+                className={`pill pill--branch ${worktreeFilter === null ? "pill--active" : ""}`}
+                onClick={() => onWorktreeFilter(null)}
+              >
+                <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+                  <circle cx="4" cy="3" r="2" stroke="currentColor" strokeWidth="1.2"/>
+                  <circle cx="4" cy="11" r="2" stroke="currentColor" strokeWidth="1.2"/>
+                  <circle cx="11" cy="7" r="2" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M4 5v4M4 5c0 0 3-1 4 2s3 2 3 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                </svg>
+                all branches
+              </button>
+              {worktrees.map((wt) => (
+                <button
+                  key={wt}
+                  className={`pill pill--branch ${worktreeFilter === wt ? "pill--active" : ""}`}
+                  onClick={() => onWorktreeFilter(worktreeFilter === wt ? null : wt)}
+                >
+                  <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+                    <circle cx="4" cy="3" r="2" stroke="currentColor" strokeWidth="1.2"/>
+                    <circle cx="10" cy="10" r="2" stroke="currentColor" strokeWidth="1.2"/>
+                    <path d="M4 5v2a3 3 0 0 0 3 3h1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  </svg>
+                  {wt}
+                </button>
+              ))}
+            </div>
+            <span className="filter-divider" />
+          </>
+        )}
         <div className="filterbar">
           {(["all", "html", "png", "jpg", "pdf", "svg", "md"] as FilterKind[]).map((k) => {
             const c = counts.kind[k] ?? 0;

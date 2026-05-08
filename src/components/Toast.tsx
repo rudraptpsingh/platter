@@ -10,6 +10,8 @@ export type ToastOpts = {
   tone?: ToastTone;
   /** Optional undo handler. If present, ⌘Z within ttl reverts. */
   undo?: () => void | Promise<void>;
+  /** Optional action button shown alongside the message. */
+  action?: { label: string; onClick: () => void };
   /** Milliseconds to show. Default 5000. */
   ttl?: number;
 };
@@ -104,6 +106,11 @@ function ToastView({
   return (
     <div className={`toast toast--${tone}`} role="status">
       <span className="toast__message">{toast.message}</span>
+      {toast.action && (
+        <button className="toast__btn" onClick={() => { toast.action!.onClick(); onDismiss(); }}>
+          {toast.action.label}
+        </button>
+      )}
       {toast.undo && (
         <button className="toast__btn" onClick={onUndo}>
           Undo

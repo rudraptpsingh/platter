@@ -5,7 +5,11 @@
   "platforms": {
     "darwin-aarch64": {
       "signature": "",
-      "url": "https://github.com/rudraptpsingh/platter/releases/download/v0.5.0/platter_0.5.0_aarch64.dmg"
+      "url": "https://github.com/rudraptpsingh/platter/releases/download/v0.5.0/platter.app.tar.gz"
+    },
+    "darwin-x86_64": {
+      "signature": "",
+      "url": "https://github.com/rudraptpsingh/platter/releases/download/v0.5.0/platter.app.tar.gz"
     }
   }
 }

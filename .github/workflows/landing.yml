@@ -1,0 +1,51 @@
+name: Deploy Landing
+
+# Deploy the landing page to Cloudflare Pages whenever landing/ changes on main.
+# This is separate from the release workflow so hotfixes to copy/css don't
+# require a full Tauri build.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'landing/**'
+      - 'wrangler.toml'
+  workflow_dispatch:
+
+concurrency:
+  group: landing-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Cloudflare Pages (production)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set — skipping deploy."
+            exit 0
+          fi
+          npx wrangler@4 pages deploy ./landing \
+            --project-name=platter \
+            --branch=main \
+            --commit-dirty=true
+
+      - name: Summarize
+        run: echo "✓ Landing page deployed to https://platter.pages.dev"

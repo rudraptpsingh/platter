@@ -356,6 +356,34 @@ fn get_initial_folder(state: State<AppState>) -> Option<String> {
 }
 
 #[tauri::command]
+fn list_files_under(base: String, state: State<AppState>) -> Result<Vec<db::FileRow>, String> {
+    state.db.list_files_under(&base).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn copy_files_to(paths: Vec<String>, dest_dir: String) -> Result<Vec<String>, String> {
+    std::fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    for path_str in &paths {
+        let src = std::path::Path::new(path_str);
+        let Some(name) = src.file_name() else { continue };
+        let mut dest = std::path::PathBuf::from(&dest_dir).join(name);
+        if dest.exists() {
+            let stem = src.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+            let ext = src.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+            let ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            dest = std::path::PathBuf::from(&dest_dir).join(format!("{stem}-{ts}{ext}"));
+        }
+        std::fs::copy(src, &dest).map_err(|e| e.to_string())?;
+        result.push(dest.to_string_lossy().into_owned());
+    }
+    Ok(result)
+}
+
+#[tauri::command]
 fn remove_file(path: String, state: State<AppState>) -> Result<(), String> {
     state.db.delete_file(&path).map_err(|e| e.to_string())
 }
@@ -498,7 +526,9 @@ pub fn run(open_folder: Option<String>) {
             get_device_id,
             get_github_token,
             clear_github_token,
-            start_github_oauth
+            start_github_oauth,
+            list_files_under,
+            copy_files_to
         ])
         .setup(move |app| {
             let app_handle = app.handle().clone();
