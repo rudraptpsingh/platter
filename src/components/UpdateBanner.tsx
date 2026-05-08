@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { open } from "@tauri-apps/plugin-opener";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "../lib/updater";
 import * as telemetry from "../lib/telemetry";
 
@@ -96,7 +96,7 @@ export function UpdateBanner() {
   }
 
   function openChangelog(version: string) {
-    open(`https://github.com/rudraptpsingh/platter/releases/tag/v${version}`).catch(() => {});
+    openUrl(`https://github.com/rudraptpsingh/platter/releases/tag/v${version}`).catch(() => {});
     telemetry.track("update_changelog_opened", { version });
   }
 

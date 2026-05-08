@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 const INGEST_URL = "https://platter.pages.dev/api/ingest";
 const STORAGE_KEY = "platter:telemetry";
 const FLUSH_INTERVAL_MS = 30_000;
-const APP_VERSION = "0.4.0";
+const APP_VERSION = "0.7.0";
 
 type Consent = "pending" | "granted" | "denied";
 
@@ -19,6 +19,12 @@ type EventName =
   | "feature_used"
   | "mcp_tool_invoked"
   | "update_checked"
+  | "update_available"
+  | "update_install_started"
+  | "update_installed"
+  | "update_install_failed"
+  | "update_dismissed"
+  | "update_changelog_opened"
   | "error";
 
 type Event = {
