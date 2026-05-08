@@ -1,54 +1,73 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
+    <!-- Background: warm dark, same feel as before -->
     <radialGradient id="bg" cx="38%" cy="32%" r="72%">
       <stop offset="0%"  stop-color="#252018"/>
       <stop offset="60%" stop-color="#181410"/>
       <stop offset="100%" stop-color="#0C0A08"/>
     </radialGradient>
 
-    <linearGradient id="tile-tl" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%"   stop-color="#FFFFFF"/>
-      <stop offset="100%" stop-color="#EDE8DF"/>
-    </linearGradient>
-
-    <filter id="tile-shadow" x="-12%" y="-12%" width="124%" height="124%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="6"/>
-      <feOffset dx="0" dy="4" result="off"/>
-      <feFlood flood-color="#000" flood-opacity="0.30"/>
+    <!-- Drop shadow for each platter -->
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="22"/>
+      <feOffset dx="0" dy="12" result="off"/>
+      <feFlood flood-color="#000000" flood-opacity="0.55"/>
       <feComposite in2="off" operator="in" result="sh"/>
       <feMerge><feMergeNode in="sh"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
 
-    <radialGradient id="inner-glow" cx="38%" cy="36%" r="60%">
-      <stop offset="0%"  stop-color="#3A2E2A" stop-opacity="1"/>
-      <stop offset="100%" stop-color="#0C0A09" stop-opacity="0"/>
+    <!-- Front platter surface gradient (warm white) -->
+    <radialGradient id="fg-surface" cx="44%" cy="38%" r="60%">
+      <stop offset="0%"   stop-color="#FDFAF2"/>
+      <stop offset="100%" stop-color="#EDE8DC"/>
+    </radialGradient>
+
+    <!-- Back platter surface gradient -->
+    <radialGradient id="bg-surface" cx="44%" cy="38%" r="60%">
+      <stop offset="0%"   stop-color="#CCC8C0"/>
+      <stop offset="100%" stop-color="#B8B4AC"/>
     </radialGradient>
   </defs>
 
   <!-- Background -->
-  <rect width="1024" height="1024" rx="220" ry="220" fill="url(#bg)"/>
-  <rect width="1024" height="1024" rx="220" ry="220" fill="url(#inner-glow)" opacity="0.5"/>
+  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
 
-  <!-- 2×2 grid — tile 240px, gap 32px, total 512px, origin 256,256 -->
+  <!--
+    Two platters stacked, viewed from ~25° above.
+    Back platter: smaller, recessed down and slightly darker.
+    Front platter: larger, dominant, warm off-white.
+    The front platter covers the upper half of the back one —
+    only the back platter's lower crescent is visible, giving
+    the classic "stack of plates" silhouette.
+  -->
 
-  <!-- Top-left (full brightness) -->
-  <rect x="256" y="256" width="240" height="240" rx="20" ry="20"
-        fill="url(#tile-tl)" filter="url(#tile-shadow)"/>
+  <!-- ── Back platter ── -->
+  <!-- Rim body (slightly darker, creates the rim edge depth) -->
+  <ellipse cx="512" cy="622" rx="356" ry="97"
+           fill="#8A8880" filter="url(#shadow)"/>
+  <!-- Rim top face -->
+  <ellipse cx="512" cy="612" rx="356" ry="97"
+           fill="url(#bg-surface)"/>
+  <!-- Inner surface (recessed) -->
+  <ellipse cx="512" cy="606" rx="328" ry="78"
+           fill="#C4C0B8"/>
 
-  <!-- Top-right (52% opacity) -->
-  <rect x="528" y="256" width="240" height="240" rx="20" ry="20"
-        fill="white" opacity="0.52" filter="url(#tile-shadow)"/>
+  <!-- ── Front platter ── -->
+  <!-- Rim body -->
+  <ellipse cx="512" cy="502" rx="394" ry="114"
+           fill="#B0ACA4" filter="url(#shadow)"/>
+  <!-- Rim top face -->
+  <ellipse cx="512" cy="490" rx="394" ry="114"
+           fill="url(#fg-surface)"/>
+  <!-- Inner surface (recessed, warm off-white) -->
+  <ellipse cx="512" cy="483" rx="362" ry="93"
+           fill="#F5F0E6"/>
+  <!-- Subtle near-rim highlight (bottom arc, closest to viewer) -->
+  <ellipse cx="512" cy="490" rx="394" ry="114"
+           fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="3"/>
 
-  <!-- Bottom-left (52% opacity) -->
-  <rect x="256" y="528" width="240" height="240" rx="20" ry="20"
-        fill="white" opacity="0.52" filter="url(#tile-shadow)"/>
-
-  <!-- Bottom-right (22% opacity / ghost) -->
-  <rect x="528" y="528" width="240" height="240" rx="20" ry="20"
-        fill="white" opacity="0.22" filter="url(#tile-shadow)"/>
-
-  <!-- Subtle border highlight -->
-  <rect width="1024" height="1024" rx="220" ry="220"
-        fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="2"/>
+  <!-- Outer border highlight on background -->
+  <rect width="1024" height="1024" rx="220"
+        fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
 </svg>

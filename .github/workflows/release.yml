@@ -172,6 +172,41 @@ jobs:
         if: always() && steps.apple.outputs.available == 'true'
         run: rm -f /tmp/developer-id.p12
 
+      # tauri-action packages the .app into a tarball but skips signing when there
+      # is no release target (workflow_dispatch) or the Tauri CLI doesn't pick up the
+      # env var. Sign it explicitly here so the updater always has a valid .sig.
+      - name: Sign updater tarball
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -e
+          BUNDLE_DIR=src-tauri/target/universal-apple-darwin/release/bundle/macos
+
+          # Find existing tarball (tauri-action may have created it) or make one
+          TARBALL=$(ls "$BUNDLE_DIR"/*.app.tar.gz 2>/dev/null | head -1)
+          if [ -z "$TARBALL" ]; then
+            APP=$(ls "$BUNDLE_DIR"/*.app 2>/dev/null | head -1)
+            APPNAME=$(basename "$APP")
+            TARBALL="$BUNDLE_DIR/$APPNAME.tar.gz"
+            tar czf "$TARBALL" -C "$BUNDLE_DIR" "$APPNAME"
+            echo "Created tarball: $TARBALL"
+          else
+            echo "Using existing tarball: $TARBALL"
+          fi
+
+          # Remove stale .sig if present (would be invalid after any repackaging)
+          rm -f "${TARBALL}.sig"
+
+          # Sign using the Tauri CLI bundled in the project
+          npx @tauri-apps/cli@^2 signer sign \
+            --private-key "$TAURI_SIGNING_PRIVATE_KEY" \
+            --password "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
+            "$TARBALL"
+
+          echo "✓ Signed: $(basename ${TARBALL}).sig"
+          ls -la "${TARBALL}.sig"
+
       - name: Build latest.json manifest
         id: manifest
         run: |
