@@ -5,6 +5,27 @@ Format: `## v<version>` headers, newest first.
 
 ---
 
+## v0.6.0 — 2026-05-08
+
+**Design system, CI/CD, and growth infrastructure.**
+
+- Design: semantic button tokens — `--btn-primary-bg/fg`, `--btn-approve-*`, `--btn-reject-*`
+- Design: all orange/vermilion button backgrounds removed across 10 CSS files; vermilion now strictly for indicators and active states
+- Design: new 2×2 grid app icon consistent with landing page logomark
+- Landing: Showcase section (4 real session cards), Pricing section (Free + Coming 2026 tiers), brew install row, live GitHub star count badge
+- CI: `ci.yml` — frontend build + `cargo check/clippy/test` + version sync gate on every PR
+- CI: `landing.yml` — auto-deploys landing page on push to `main`
+- CI: `release.yml` — version sync check before build, richer `latest.json` notes from changelog
+- Fix: `latest.json` was pointing to `.dmg` (wrong for updater); now correctly points to `.app.tar.gz`
+- New: `scripts/bump-version.sh` — syncs all version files in one command
+- New: `scripts/mcp-setup/` — `npx platter-mcp-setup` CLI for one-command MCP registration
+- New: `scripts/homebrew/platter.rb` — Homebrew cask formula
+- New: `docs/CLAUDE.md` — drop-in Claude Code skill file
+- New: `docs/SETUP.md` — full install + Cloudflare backend + CI secrets guide
+- GitHub auth: "Connect GitHub" now ghost-styled and labelled "optional"; no feature requires it
+
+---
+
 ## v0.5.0 — 2026-05-06
 
 **Share links for async review.**
