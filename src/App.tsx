@@ -148,6 +148,7 @@ function AppInner() {
   const [sharedCount, setSharedCount] = useState(0);
   const [dropHovering, setDropHovering] = useState(false);
   const [dropPaths, setDropPaths] = useState<string[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
 
   const refreshTree = useCallback(async () => {
     const t = await api.listTree();
@@ -156,12 +157,15 @@ function AppInner() {
 
   const refreshRepoFiles = useCallback(async (repo: RepoNode | null) => {
     if (!repo) { setFiles([]); return; }
+    setLoadingFiles(true);
     try {
       const fs = await api.listFilesUnder(repo.base_path);
       setFiles(fs);
     } catch (e) {
       console.error("[platter] refreshRepoFiles failed:", e);
       setFiles([]);
+    } finally {
+      setLoadingFiles(false);
     }
   }, []);
 
@@ -190,8 +194,13 @@ function AppInner() {
       setFiles([]);
       return;
     }
-    const f = await api.listFiles(dir);
-    setFiles(f);
+    setLoadingFiles(true);
+    try {
+      const f = await api.listFiles(dir);
+      setFiles(f);
+    } finally {
+      setLoadingFiles(false);
+    }
   }, []);
 
   const toast = useToast();
@@ -843,6 +852,7 @@ function AppInner() {
           worktrees={worktrees}
           worktreeFilter={worktreeFilter}
           onWorktreeFilter={setWorktreeFilter}
+          loading={loadingFiles}
         />
         )}
 
@@ -876,6 +886,11 @@ function AppInner() {
           <div className="center-state">
             <h2 className="center-state__h">Nothing matches "{search}".</h2>
             <p className="center-state__sub">Try a shorter query, or check that the folder is indexed.</p>
+          </div>
+        ) : loadingFiles ? (
+          <div className="center-state">
+            <div className="center-state__spinner" />
+            <p className="center-state__sub">Loading files…</p>
           </div>
         ) : filteredFiles.length === 0 ? (
           <div className="center-state">
@@ -1319,6 +1334,7 @@ function Toolbar({
   worktrees,
   worktreeFilter,
   onWorktreeFilter,
+  loading,
 }: {
   view: View;
   activePath: string | null;
@@ -1341,6 +1357,7 @@ function Toolbar({
   worktrees: string[];
   worktreeFilter: string | null;
   onWorktreeFilter: (wt: string | null) => void;
+  loading?: boolean;
 }) {
   const parts = activePath ? cleanPathParts(activePath) : [];
 
@@ -1361,7 +1378,7 @@ function Toolbar({
     leadingSub = `${stats.total} decision${stats.total === 1 ? "" : "s"}`;
   } else if (view === "repo" && activeRepo) {
     leadingTitle = <span className="crumb__current">{activeRepo.name}</span>;
-    leadingSub = `${stats.total} files${stats.newCount > 0 ? ` · ${stats.newCount} new` : ""}`;
+    leadingSub = loading ? "Loading…" : `${stats.total} files${stats.newCount > 0 ? ` · ${stats.newCount} new` : ""}`;
   } else if (parts.length > 0) {
     const parentPart = parts.length > 1 ? parts[parts.length - 2] : null;
     leadingTitle = (
@@ -1375,7 +1392,7 @@ function Toolbar({
         <span className="crumb__current">{parts[parts.length - 1]}</span>
       </>
     );
-    leadingSub = `${stats.total} items${stats.newCount > 0 ? ` · ${stats.newCount} new` : ""} · scanned ${relativeTime(stats.lastScan)}`;
+    leadingSub = loading ? "Loading…" : `${stats.total} items${stats.newCount > 0 ? ` · ${stats.newCount} new` : ""} · scanned ${relativeTime(stats.lastScan)}`;
   } else {
     leadingTitle = <span className="crumb__current" style={{ color: "var(--ink-3)", fontWeight: 400 }}>Choose a folder</span>;
     leadingSub = "";

@@ -653,6 +653,16 @@
 }
 .center-state__cta:hover { background: var(--btn-primary-hover-bg); }
 
+.center-state__spinner {
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid var(--line, #e0dbd2);
+  border-top-color: var(--ink-3, #8a8480);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ─── Compare banner ─────────────────────────────────── */
 
 .cmp-banner {
