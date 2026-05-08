@@ -573,6 +573,8 @@ function AppInner() {
     setWorktreeFilter(null);
     setView("folder");
     setSearch("");
+    setFilterKind("all");
+    setFilterDecision("all");
   }, []);
 
   const handleHome = useCallback(() => {
@@ -581,6 +583,8 @@ function AppInner() {
     setActiveRepo(null);
     setWorktreeFilter(null);
     setSearch("");
+    setFilterKind("all");
+    setFilterDecision("all");
   }, []);
 
   const handleCompareToggle = useCallback((f: FileRow) => {
@@ -605,6 +609,8 @@ function AppInner() {
     setActiveRepo(null);
     setWorktreeFilter(null);
     setSearch("");
+    setFilterKind("all");
+    setFilterDecision("all");
   }, []);
 
   const handleSharedView = useCallback(() => {
@@ -613,6 +619,8 @@ function AppInner() {
     setActiveRepo(null);
     setWorktreeFilter(null);
     setSearch("");
+    setFilterKind("all");
+    setFilterDecision("all");
   }, []);
 
   const handleDecisionsView = useCallback(
@@ -622,6 +630,8 @@ function AppInner() {
       setActiveRepo(null);
       setWorktreeFilter(null);
       setSearch("");
+      setFilterKind("all");
+      setFilterDecision("all");
       setDecisionsFilter(filter);
       loadDecisions(filter);
     },
@@ -641,6 +651,8 @@ function AppInner() {
     setView("repo");
     setSearch("");
     setWorktreeFilter(null);
+    setFilterKind("all");
+    setFilterDecision("all");
   }, []);
 
   const handleDrop = useCallback((paths: string[]) => {
