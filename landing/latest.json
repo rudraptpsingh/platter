@@ -1,14 +1,14 @@
 {
   "version": "0.6.0",
-  "notes": "Share links for async review, web review page with full-fidelity preview, GitHub auth for reviewers, approve/reject single-file fix.",
-  "pub_date": "2026-05-06T10:31:00Z",
+  "notes": " **Design system, CI/CD, and growth infrastructure.**  - Design: semantic button tokens \u2014 `--btn-primary-bg/fg`, `--btn-approve-*`, `--btn-reject-*` - Design: all orange/vermilion button backgrounds removed across 10 CSS files; vermilion now strictly for indicators and active states - Design: new 2\u00d72 grid app icon consistent with landing page logomark - Landing: Showcase section (4 real session cards), Pricing section (Free + Coming 2026 tiers), brew install row, live GitHub star count badge - CI: `ci.yml` \u2014 frontend build + `cargo check/clippy/test` + version sync gate on every PR - CI: `landing.yml` \u2014 auto-deploys landing page on push to `main` - CI: `release.yml` \u2014 version sync check before build, richer `latest.json` notes from changelog ",
+  "pub_date": "2026-05-08T09:28:33Z",
   "platforms": {
     "darwin-aarch64": {
-      "signature": "",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRWEtkNkNuakplMFZoT1h6Ujlqekk4SnQvMTQxeXZCQS9KN3hSTzlrMFgwU2FCblBqTEhTbExkdWdCVDhIVWVCWWNGU1d2dHF0UTF4dU9lcjU3T21GYlQrYVNaVGNqcHdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc4MjMyNTEzCWZpbGU6cGxhdHRlci5hcHAudGFyLmd6CnJKb25KMXFFNDNiMmptTVlqeE1WSXlBaVNyaDEwTVFPUEhhOUQ0WTJvUm5UMndSS3Fvblg2NkNUT1JERnRvWEJydkhvYWZGNjJvbGxLOXlXQWsrWkNBPT0K",
       "url": "https://github.com/rudraptpsingh/platter/releases/download/v0.6.0/platter.app.tar.gz"
     },
     "darwin-x86_64": {
-      "signature": "",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRWEtkNkNuakplMFZoT1h6Ujlqekk4SnQvMTQxeXZCQS9KN3hSTzlrMFgwU2FCblBqTEhTbExkdWdCVDhIVWVCWWNGU1d2dHF0UTF4dU9lcjU3T21GYlQrYVNaVGNqcHdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzc4MjMyNTEzCWZpbGU6cGxhdHRlci5hcHAudGFyLmd6CnJKb25KMXFFNDNiMmptTVlqeE1WSXlBaVNyaDEwTVFPUEhhOUQ0WTJvUm5UMndSS3Fvblg2NkNUT1JERnRvWEJydkhvYWZGNjJvbGxLOXlXQWsrWkNBPT0K",
       "url": "https://github.com/rudraptpsingh/platter/releases/download/v0.6.0/platter.app.tar.gz"
     }
   }
