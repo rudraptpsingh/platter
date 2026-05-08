@@ -109,7 +109,7 @@ fn match_root(path: &Path, roots: &[crate::db::RootRow]) -> Option<i64> {
             let dir_str = dir.to_string_lossy().to_string();
             if path_str.starts_with(&dir_str) {
                 let len = dir_str.len();
-                if best.map_or(true, |(_, l)| len > l) {
+                if best.is_none_or(|(_, l)| len > l) {
                     best = Some((root.id, len));
                 }
             }

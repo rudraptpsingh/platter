@@ -4,5 +4,5 @@ pub mod protocol;
 pub mod socket;
 pub mod stdio;
 
-pub use bus::{ReviewBus, ReviewDecision, ReviewMode, ReviewRequest};
+pub use bus::{ReviewBus, ReviewDecision, ReviewRequest};
 pub use context::McpContext;

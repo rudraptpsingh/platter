@@ -4,21 +4,16 @@ use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReviewMode {
+    #[default]
     ApproveReject,
     Rank,
     PickOne,
     /// Iteration mode: agent shows a single asset and asks the user for free-text
     /// feedback on what to change. Returns the typed string in `note`.
     Iteration,
-}
-
-impl Default for ReviewMode {
-    fn default() -> Self {
-        Self::ApproveReject
-    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -70,11 +65,14 @@ pub struct PerItem {
     pub note: Option<String>,
 }
 
+type NotifierFn = Box<dyn Fn(&ReviewRequest) + Send + Sync>;
+type ResolverFn = Box<dyn Fn(&str, &ReviewDecision) + Send + Sync>;
+
 pub struct ReviewBus {
     pending: Mutex<HashMap<String, mpsc::Sender<ReviewDecision>>>,
     requests: Mutex<HashMap<String, ReviewRequest>>,
-    notifier: Mutex<Option<Box<dyn Fn(&ReviewRequest) + Send + Sync>>>,
-    resolver: Mutex<Option<Box<dyn Fn(&str, &ReviewDecision) + Send + Sync>>>,
+    notifier: Mutex<Option<NotifierFn>>,
+    resolver: Mutex<Option<ResolverFn>>,
 }
 
 impl ReviewBus {

@@ -1,3 +1,5 @@
+#![allow(unexpected_cfgs)]
+
 mod db;
 mod mcp;
 mod scanner;
@@ -238,7 +240,6 @@ fn read_file_bytes(path: String) -> Result<Vec<u8>, String> {
 fn force_foreground(window: tauri::WebviewWindow) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        use tauri::Manager;
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
@@ -455,9 +456,7 @@ async fn start_github_oauth(
                 .and_then(|path| {
                     path.split('?').nth(1).and_then(|qs| {
                         qs.split('&').find_map(|kv| {
-                            let mut parts = kv.splitn(2, '=');
-                            let k = parts.next()?;
-                            let v = parts.next()?;
+                            let (k, v) = kv.split_once('=')?;
                             if k == "token" { Some(v.to_string()) } else { None }
                         })
                     })
