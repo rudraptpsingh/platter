@@ -1,76 +1,105 @@
 import { useEffect, useRef, useState } from "react";
+import { open } from "@tauri-apps/plugin-opener";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "../lib/updater";
+import * as telemetry from "../lib/telemetry";
 
 import "../styles/update-banner.css";
 
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
+/** Parse `latest.json` notes (markdown-ish) into a headline + up to 3 bullets. */
+function parseNotes(raw: string | null): { headline: string; bullets: string[] } {
+  if (!raw?.trim()) return { headline: "", bullets: [] };
+  const parts = raw
+    .split(/\s+-\s+/)
+    .map((s) => s.trim().replace(/\*\*/g, "").replace(/`/g, ""))
+    .filter(Boolean);
+  if (parts.length === 0) return { headline: "", bullets: [] };
+  if (parts.length === 1) return { headline: parts[0].slice(0, 120), bullets: [] };
+  return {
+    headline: parts[0].slice(0, 120),
+    bullets: parts.slice(1, 4).map((s) => s.slice(0, 90)),
+  };
+}
+
 export function UpdateBanner() {
   const [state, setState] = useState<UpdateState>({ kind: "idle" });
   const errorCountRef = useRef(0);
+  const trackedAvailableRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    let intervalId: number | null = null;
 
     async function runCheck() {
       if (cancelled) return;
-      setState((prev) => (prev.kind === "downloading" || prev.kind === "ready" ? prev : { kind: "checking" }));
+      setState((prev) =>
+        prev.kind === "downloading" || prev.kind === "ready" ? prev : { kind: "checking" }
+      );
       const next = await checkForUpdate();
       if (cancelled) return;
 
-      // Track consecutive errors. Don't surface error UI until we've failed
-      // ~3 checks in a row — transient network blips and "no manifest yet"
-      // shouldn't burn the user's attention with a red banner.
       if (next.kind === "error") {
         errorCountRef.current += 1;
-        console.debug(
-          `[updater] check failed (${errorCountRef.current} in a row):`,
-          next.message,
-        );
+        console.debug(`[updater] check failed (${errorCountRef.current}):`, next.message);
         setState((prev) => {
           if (prev.kind === "downloading" || prev.kind === "ready") return prev;
-          // Stay idle for the first 2 failures; show the banner only after the third
           return errorCountRef.current >= 3 ? next : { kind: "idle" };
         });
         return;
       }
 
       errorCountRef.current = 0;
-      setState((prev) => (prev.kind === "downloading" || prev.kind === "ready" ? prev : next));
+      if (
+        next.kind === "available" &&
+        trackedAvailableRef.current !== next.version
+      ) {
+        trackedAvailableRef.current = next.version;
+        telemetry.track("update_available", { version: next.version });
+      }
+      setState((prev) =>
+        prev.kind === "downloading" || prev.kind === "ready" ? prev : next
+      );
     }
 
-    // First check after 30s of launch (so it doesn't pile on startup work)
     const firstCheck = setTimeout(runCheck, 30_000);
-
-    // Subsequent checks every 6h
-    intervalId = window.setInterval(runCheck, CHECK_INTERVAL_MS);
+    const intervalId = window.setInterval(runCheck, CHECK_INTERVAL_MS);
 
     return () => {
       cancelled = true;
       clearTimeout(firstCheck);
-      if (intervalId) clearInterval(intervalId);
+      clearInterval(intervalId);
     };
   }, []);
 
   async function install() {
     if (state.kind !== "available") return;
+    const version = state.version;
+    telemetry.track("update_install_started", { version });
     setState({ kind: "downloading", received: 0, total: null });
     try {
       await downloadAndInstall(state.update, (received, total) => {
         setState({ kind: "downloading", received, total });
       });
-      setState({ kind: "ready", version: state.version });
+      telemetry.track("update_installed", { version });
+      setState({ kind: "ready", version });
     } catch (e) {
+      telemetry.track("update_install_failed", { version, error: String(e) });
       setState({ kind: "error", message: String(e) });
     }
   }
 
-  async function dismiss() {
+  function dismiss() {
+    if (state.kind === "available") {
+      telemetry.track("update_dismissed", { version: state.version });
+    }
     setState({ kind: "idle" });
   }
 
-  // Don't render anything when there's no actionable state
+  function openChangelog(version: string) {
+    open(`https://github.com/rudraptpsingh/platter/releases/tag/v${version}`).catch(() => {});
+    telemetry.track("update_changelog_opened", { version });
+  }
+
   if (state.kind === "idle" || state.kind === "checking" || state.kind === "uptodate") {
     return null;
   }
@@ -78,32 +107,37 @@ export function UpdateBanner() {
   if (state.kind === "error") {
     return (
       <div className="update-banner update-banner--error">
-        <span className="update-banner__icon">!</span>
+        <span className="update-banner__dot" />
         <span className="update-banner__copy">
           <span className="update-banner__title">Update check failed</span>
           <span className="update-banner__sub">{state.message}</span>
         </span>
-        <button className="update-banner__btn update-banner__btn--ghost" onClick={dismiss}>Dismiss</button>
+        <button className="update-banner__btn update-banner__btn--ghost" onClick={dismiss}>
+          Dismiss
+        </button>
       </div>
     );
   }
 
   if (state.kind === "downloading") {
     const pct = state.total ? Math.round((state.received / state.total) * 100) : null;
+    const receivedMB = (state.received / 1024 / 1024).toFixed(1);
+    const totalMB = state.total ? (state.total / 1024 / 1024).toFixed(1) : null;
     return (
       <div className="update-banner update-banner--progress">
-        <span className="update-banner__icon update-banner__icon--spin">↻</span>
+        <span className="update-banner__dot update-banner__dot--spin" />
         <span className="update-banner__copy">
           <span className="update-banner__title">Downloading update…</span>
           <span className="update-banner__sub">
-            {pct !== null ? `${pct}%` : `${(state.received / 1024 / 1024).toFixed(1)} MB`}
+            {totalMB ? `${receivedMB} MB of ${totalMB} MB` : `${receivedMB} MB`}
           </span>
         </span>
-        {state.total !== null && (
-          <div className="update-banner__progress">
-            <div className="update-banner__progress-bar" style={{ width: `${pct ?? 0}%` }} />
-          </div>
-        )}
+        <div className="update-banner__progress">
+          <div
+            className="update-banner__progress-bar"
+            style={{ width: pct !== null ? `${pct}%` : "100%", opacity: pct !== null ? 1 : 0.4 }}
+          />
+        </div>
       </div>
     );
   }
@@ -111,38 +145,55 @@ export function UpdateBanner() {
   if (state.kind === "ready") {
     return (
       <div className="update-banner update-banner--ready">
-        <span className="update-banner__icon">✓</span>
+        <span className="update-banner__dot" />
         <span className="update-banner__copy">
-          <span className="update-banner__title">v{state.version} ready</span>
-          <span className="update-banner__sub">Restart to finish installing</span>
+          <span className="update-banner__title">platter {state.version} installed</span>
+          <span className="update-banner__sub">Quit and reopen to finish</span>
         </span>
         <button className="update-banner__btn update-banner__btn--primary" onClick={restartApp}>
-          Restart
+          Restart now
         </button>
-        <button className="update-banner__btn update-banner__btn--ghost" onClick={dismiss}>Later</button>
+        <button className="update-banner__btn update-banner__btn--ghost" onClick={dismiss}>
+          Later
+        </button>
       </div>
     );
   }
 
   // available
+  const { headline, bullets } = parseNotes(state.notes);
+  const version = state.version;
+
   return (
     <div className="update-banner update-banner--available">
-      <span className="update-banner__icon">↑</span>
+      <span className="update-banner__dot" />
       <span className="update-banner__copy">
-        <span className="update-banner__title">v{state.version} available</span>
-        <span
-          className="update-banner__sub"
-          title={state.notes ?? "A newer platter is ready to install."}
-        >
-          {state.notes && state.notes.length > 0
-            ? state.notes.split("\n")[0].slice(0, 80)
-            : "A newer platter is ready to install."}
+        <span className="update-banner__title">
+          platter {version} is available
         </span>
+        {headline && <span className="update-banner__headline">{headline}</span>}
+        {bullets.length > 0 && (
+          <ul className="update-banner__notes">
+            {bullets.map((b, i) => (
+              <li key={i}>{b}</li>
+            ))}
+          </ul>
+        )}
+        <button
+          className="update-banner__link"
+          onClick={() => openChangelog(version)}
+        >
+          What's new →
+        </button>
       </span>
-      <button className="update-banner__btn update-banner__btn--primary" onClick={install}>
-        Install
-      </button>
-      <button className="update-banner__btn update-banner__btn--ghost" onClick={dismiss}>Later</button>
+      <div className="update-banner__actions">
+        <button className="update-banner__btn update-banner__btn--primary" onClick={install}>
+          Update now
+        </button>
+        <button className="update-banner__btn update-banner__btn--ghost" onClick={dismiss}>
+          Later
+        </button>
+      </div>
     </div>
   );
 }

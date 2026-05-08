@@ -5,6 +5,22 @@ Format: `## v<version>` headers, newest first.
 
 ---
 
+## v0.7.0 — 2026-05-08
+
+**macOS menu, update UX, and icon polish.**
+
+- Menu: full SOTA macOS app menu — Platter / File / Edit / View / Window / Help
+- Menu: Settings (⌘,), Rescan Files (⌘R), GitHub repo + issue links in Help
+- Menu: standard Edit predefined items (Undo/Redo/Cut/Copy/Paste/Select All)
+- Menu: standard Window items (Minimize, Zoom, Bring All to Front)
+- Update: Remotion-style banner — release notes, bullet list, "What's new →" link
+- Update: telemetry for update_available, install_started, installed, dismissed
+- Update: progress shows "X MB of Y MB" instead of bare percentage
+- Icon: sidebar logomark updated to stacked disc platters (replaces 2×2 grid)
+- Fix: update banner was not appearing after failed install; restart restores it
+
+---
+
 ## v0.6.0 — 2026-05-08
 
 **Design system, CI/CD, and growth infrastructure.**

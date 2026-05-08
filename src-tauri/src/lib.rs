@@ -531,6 +531,93 @@ pub fn run(open_folder: Option<String>) {
             copy_files_to
         ])
         .setup(move |app| {
+            // ── Application menu ────────────────────────────────────────
+            {
+                use tauri::menu::{MenuBuilder, MenuItem, SubmenuBuilder};
+                let h = app.handle();
+
+                let settings_i = MenuItem::with_id(h, "settings",      "Settings…",        true, Some("CmdOrCtrl+,"))?;
+                let rescan_i   = MenuItem::with_id(h, "rescan",         "Rescan Files",     true, Some("CmdOrCtrl+R"))?;
+                let github_i   = MenuItem::with_id(h, "github",         "GitHub Repository",true, None::<&str>)?;
+                let issues_i   = MenuItem::with_id(h, "report_issue",   "Report an Issue…", true, None::<&str>)?;
+
+                let app_sub = SubmenuBuilder::new(h, "platter")
+                    .about(None)
+                    .separator()
+                    .item(&settings_i)
+                    .separator()
+                    .hide()
+                    .hide_others()
+                    .show_all()
+                    .separator()
+                    .quit()
+                    .build()?;
+
+                let file_sub = SubmenuBuilder::new(h, "File")
+                    .close_window()
+                    .build()?;
+
+                let edit_sub = SubmenuBuilder::new(h, "Edit")
+                    .undo()
+                    .redo()
+                    .separator()
+                    .cut()
+                    .copy()
+                    .paste()
+                    .select_all()
+                    .build()?;
+
+                let view_sub = SubmenuBuilder::new(h, "View")
+                    .item(&rescan_i)
+                    .separator()
+                    .fullscreen()
+                    .build()?;
+
+                let window_sub = SubmenuBuilder::new(h, "Window")
+                    .minimize()
+                    .maximize()
+                    .separator()
+                    .bring_all_to_front()
+                    .build()?;
+
+                let help_sub = SubmenuBuilder::new(h, "Help")
+                    .item(&github_i)
+                    .item(&issues_i)
+                    .build()?;
+
+                let menu = MenuBuilder::new(h)
+                    .item(&app_sub)
+                    .item(&file_sub)
+                    .item(&edit_sub)
+                    .item(&view_sub)
+                    .item(&window_sub)
+                    .item(&help_sub)
+                    .build()?;
+
+                app.set_menu(menu)?;
+                app.on_menu_event(|app_h, event| match event.id().as_ref() {
+                    "settings" => {
+                        let _ = app_h.emit("platter:menu:settings", ());
+                    }
+                    "rescan" => {
+                        let _ = app_h.emit("platter:menu:rescan", ());
+                    }
+                    "github" => {
+                        let _ = tauri_plugin_opener::open_url(
+                            "https://github.com/rudraptpsingh/platter",
+                            None::<String>,
+                        );
+                    }
+                    "report_issue" => {
+                        let _ = tauri_plugin_opener::open_url(
+                            "https://github.com/rudraptpsingh/platter/issues/new",
+                            None::<String>,
+                        );
+                    }
+                    _ => {}
+                });
+            }
+
             let app_handle = app.handle().clone();
             let db_for_scan = initial_db.clone();
             std::thread::spawn(move || {

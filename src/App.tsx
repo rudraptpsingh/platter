@@ -439,6 +439,22 @@ function AppInner() {
     return () => { unlisten.then((u) => u()); };
   }, []);
 
+  // Menu-bar events emitted by the Rust side
+  useEffect(() => {
+    const unSettings = listen("platter:menu:settings", () => {
+      setShowSettings(true);
+    });
+    const unRescan = listen("platter:menu:rescan", async () => {
+      await api.rescan().catch(() => {});
+      toast.show({ message: "Rescanning files…", tone: "info", ttl: 2500 });
+    });
+    return () => {
+      unSettings.then((u) => u());
+      unRescan.then((u) => u());
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Re-fetch folder files when active path changes (folder view only)
   useEffect(() => {
     if (view !== "folder") return;
@@ -1049,19 +1065,19 @@ function Sidebar({
     <aside className="sidebar">
       <div className="titlebar-drag" />
       <div className="sidebar__head">
-        {/* Platter logomark — 2×2 grid on dark ground */}
+        {/* Platter logomark — stacked disc platters on dark ground */}
         <svg className="sidebar__logomark" aria-hidden="true"
              width="20" height="20" viewBox="0 0 20 20" fill="none"
              xmlns="http://www.w3.org/2000/svg">
-          <rect width="20" height="20" rx="4.5" fill="#0F0C0B"/>
-          {/* Top-left — full white */}
-          <rect x="4"  y="4"  width="5.5" height="5.5" rx="1" fill="white"/>
-          {/* Top-right — 52% */}
-          <rect x="10.5" y="4"  width="5.5" height="5.5" rx="1" fill="white" opacity="0.52"/>
-          {/* Bottom-left — 52% */}
-          <rect x="4"  y="10.5" width="5.5" height="5.5" rx="1" fill="white" opacity="0.52"/>
-          {/* Bottom-right — 22% ghost */}
-          <rect x="10.5" y="10.5" width="5.5" height="5.5" rx="1" fill="white" opacity="0.22"/>
+          <rect width="20" height="20" rx="4.5" fill="#13100D"/>
+          {/* Back platter */}
+          <ellipse cx="10" cy="8.4" rx="6" ry="1.9" fill="#5A5652"/>
+          {/* Front platter edge */}
+          <rect x="4" y="11.8" width="12" height="1.5" rx="0.4" fill="#B8B0A4"/>
+          {/* Front platter top face */}
+          <ellipse cx="10" cy="11.8" rx="6" ry="1.9" fill="#EDE7DA"/>
+          {/* Front platter inner ring */}
+          <ellipse cx="10" cy="11.5" rx="4.6" ry="1.35" fill="#F6F0E6"/>
         </svg>
         <span className="sidebar__brand">platter</span>
       </div>
