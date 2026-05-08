@@ -932,8 +932,12 @@ function AppInner() {
                       }
                     }}
                     onRename={(path) => {
-                      // Open preview in rename mode — simplest UX
-                      setPreviewFile(files.find((x) => x.path === path) ?? recent.find((x) => x.path === path) ?? null);
+                      // Open preview — user can double-click filename or use pencil icon to rename
+                      const found = filteredFiles.find((x) => x.path === path)
+                        ?? files.find((x) => x.path === path)
+                        ?? recent.find((x) => x.path === path)
+                        ?? searchHits.find((x) => x.path === path);
+                      if (found) setPreviewFile(found);
                     }}
                   />
                 );

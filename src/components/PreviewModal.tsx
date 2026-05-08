@@ -136,7 +136,12 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate, o
 
   function commitRename() {
     const newName = renameDraft.trim();
-    if (!newName || newName === basename(file.path)) {
+    if (!newName) {
+      setRenaming(false);
+      return;
+    }
+    // Allow case-only renames (e.g. "Hero.html" → "hero.html") on macOS
+    if (newName === basename(file.path)) {
       setRenaming(false);
       return;
     }
@@ -234,7 +239,7 @@ export function PreviewModal({ file, siblings, onClose, onDecided, onNavigate, o
                     value={renameDraft}
                     onChange={(e) => setRenameDraft(e.target.value)}
                     onBlur={commitRename}
-                    onKeyDown={(e) => e.key === "Escape" && setRenaming(false)}
+                    onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); setRenaming(false); } }}
                     autoFocus
                     spellCheck={false}
                   />

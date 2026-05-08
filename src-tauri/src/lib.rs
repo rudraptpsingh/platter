@@ -398,9 +398,22 @@ fn trash_file(path: String, state: State<AppState>) -> Result<(), String> {
     Ok(())
 }
 
-/// Rename (or move) a file on disk and update the DB path.
+/// Rename a file on disk and update the DB path.
+/// Both paths must share the same parent directory (no moving across directories).
 #[tauri::command]
 fn rename_file(old_path: String, new_path: String, state: State<AppState>) -> Result<(), String> {
+    let old = std::path::Path::new(&old_path);
+    let new = std::path::Path::new(&new_path);
+    // Safety: only allow same-directory renames
+    if old.parent() != new.parent() {
+        return Err("Rename must stay in the same directory".into());
+    }
+    if !old.exists() {
+        return Err(format!("File not found: {}", old_path));
+    }
+    if new.exists() && old_path != new_path {
+        return Err(format!("A file named '{}' already exists", new.file_name().unwrap_or_default().to_string_lossy()));
+    }
     std::fs::rename(&old_path, &new_path).map_err(|e| e.to_string())?;
     state.db.rename_file(&old_path, &new_path).map_err(|e| e.to_string())
 }

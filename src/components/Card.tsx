@@ -46,7 +46,10 @@ export function Card({
       }}
       onContextMenu={(e) => {
         e.preventDefault();
-        setCtxMenu({ x: e.clientX, y: e.clientY });
+        // Clamp so menu doesn't overflow viewport
+        const x = Math.min(e.clientX, window.innerWidth - 180);
+        const y = Math.min(e.clientY, window.innerHeight - 160);
+        setCtxMenu({ x, y });
       }}
       title={file.path}
     >
@@ -127,9 +130,12 @@ function CardContextMenu({ x, y, onClose, onOpen, onReveal, onRename, onTrash }:
     const dismiss = () => onClose();
     window.addEventListener("click", dismiss);
     window.addEventListener("contextmenu", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+    window.addEventListener("keydown", (e) => { if (e.key === "Escape") dismiss(); });
     return () => {
       window.removeEventListener("click", dismiss);
       window.removeEventListener("contextmenu", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
     };
   }, [onClose]);
 
