@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>platter — try it, no install</title>
+  <meta name="description" content="Drop a file, get a public review link. No install needed. Your reviewer approves, rejects, or requests changes at full fidelity." />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ── Try page overrides ── */
+    .try-page {
+      min-height: calc(100vh - 56px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 64px 24px;
+    }
+
+    .try-card {
+      width: 100%;
+      max-width: 580px;
+    }
+
+    .try-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--vermilion);
+      margin-bottom: 12px;
+    }
+
+    .try-h {
+      font-family: var(--font-display);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(32px, 5vw, 52px);
+      line-height: 1.05;
+      letter-spacing: -0.025em;
+      color: var(--ink);
+      margin: 0 0 12px;
+    }
+
+    .try-sub {
+      font-size: 15px;
+      color: var(--ink-3);
+      margin: 0 0 36px;
+      line-height: 1.55;
+    }
+
+    /* ── Drop zone ── */
+    .dropzone {
+      border: 1.5px dashed var(--line-strong);
+      border-radius: var(--r-lg);
+      padding: 48px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.18s var(--ease-out), background 0.18s var(--ease-out);
+      background: transparent;
+      position: relative;
+      overflow: hidden;
+    }
+    .dropzone:hover,
+    .dropzone--hover {
+      border-color: var(--vermilion-line);
+      background: var(--vermilion-soft);
+    }
+    .dropzone--has-file {
+      border-style: solid;
+      border-color: var(--line-strong);
+      background: var(--paper-2);
+      padding: 24px 32px;
+    }
+
+    .dropzone__icon {
+      width: 40px;
+      height: 40px;
+      margin: 0 auto 14px;
+      color: var(--ink-4);
+      transition: color 0.18s;
+    }
+    .dropzone:hover .dropzone__icon,
+    .dropzone--hover .dropzone__icon { color: var(--vermilion); }
+
+    .dropzone__label {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--ink-2);
+      margin-bottom: 5px;
+    }
+    .dropzone__hint {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--ink-4);
+    }
+
+    /* File selected state */
+    .dropzone__file-info {
+      display: none;
+      align-items: center;
+      gap: 12px;
+    }
+    .dropzone--has-file .dropzone__file-info { display: flex; }
+    .dropzone--has-file .dropzone__empty { display: none; }
+
+    .dropzone__file-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--paper-3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+    }
+    .dropzone__file-meta {
+      text-align: left;
+      flex: 1;
+      min-width: 0;
+    }
+    .dropzone__file-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .dropzone__file-size {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-4);
+      letter-spacing: 0.04em;
+    }
+    .dropzone__clear {
+      background: none;
+      border: none;
+      padding: 6px;
+      cursor: pointer;
+      color: var(--ink-4);
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dropzone__clear:hover { color: var(--vermilion); background: var(--vermilion-soft); }
+
+    /* Hidden file input */
+    .dropzone__input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      font-size: 0;
+    }
+    .dropzone--has-file .dropzone__input { display: none; }
+
+    /* ── Prompt field ── */
+    .try-field {
+      margin-top: 16px;
+    }
+    .try-field__label {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-3);
+      margin-bottom: 7px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .try-field__label .optional {
+      background: var(--paper-3);
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--ink-4);
+    }
+    .try-field__input {
+      width: 100%;
+      font-family: var(--font-body);
+      font-size: 14px;
+      background: var(--paper-2);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-sm);
+      padding: 10px 14px;
+      color: var(--ink);
+      outline: none;
+      transition: border-color 0.15s var(--ease-out), background 0.15s var(--ease-out);
+      line-height: 1.5;
+      resize: none;
+    }
+    .try-field__input::placeholder { color: var(--ink-4); font-style: italic; }
+    .try-field__input:focus {
+      border-color: var(--line-strong);
+      background: var(--paper);
+      box-shadow: 0 0 0 3px var(--vermilion-soft);
+    }
+
+    /* ── Submit button ── */
+    .try-submit {
+      margin-top: 20px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 13px 24px;
+      font-size: 14.5px;
+      font-weight: 500;
+      font-family: var(--font-body);
+      background: var(--ink);
+      color: var(--paper);
+      border: none;
+      border-radius: var(--r);
+      cursor: pointer;
+      transition: background 0.18s var(--ease-out), opacity 0.18s, transform 0.12s;
+      letter-spacing: -0.01em;
+    }
+    .try-submit:hover:not(:disabled) { background: #2e2820; }
+    .try-submit:active:not(:disabled) { transform: scale(0.985); }
+    .try-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+    .try-submit--loading .submit-spinner { display: block; }
+    .try-submit--loading .submit-label { opacity: 0.7; }
+
+    .submit-spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(244, 239, 229, 0.25);
+      border-top-color: rgba(244, 239, 229, 0.85);
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error banner ── */
+    .try-error {
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: rgba(201, 71, 42, 0.08);
+      border: 1px solid var(--vermilion-line);
+      border-radius: var(--r-sm);
+      font-size: 13px;
+      color: var(--vermilion);
+      display: none;
+    }
+    .try-error--visible { display: block; }
+
+    /* ── Result panel ── */
+    .try-result {
+      display: none;
+      flex-direction: column;
+      gap: 20px;
+      animation: fadeUp 0.35s var(--ease-out);
+    }
+    .try-result--visible { display: flex; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .try-result__header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .try-result__badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(110, 127, 88, 0.12);
+      border: 1px solid rgba(110, 127, 88, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .try-result__title {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+    .try-result__subtitle {
+      font-size: 13px;
+      color: var(--ink-3);
+    }
+
+    .link-box {
+      background: var(--paper-2);
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .link-box__url {
+      flex: 1;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--ink-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+    .link-box__copy {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--ink);
+      color: var(--paper);
+      border: none;
+      border-radius: 6px;
+      padding: 6px 13px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      white-space: nowrap;
+    }
+    .link-box__copy:hover { background: #2e2820; }
+    .link-box__copy--ok {
+      background: var(--sage);
+    }
+
+    .try-result__open {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13.5px;
+      color: var(--ink-3);
+      text-decoration: none;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--r-sm);
+      padding: 9px 16px;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      font-weight: 500;
+      align-self: flex-start;
+    }
+    .try-result__open:hover {
+      color: var(--ink);
+      border-color: var(--line-strong);
+      background: var(--paper-2);
+    }
+
+    .try-result__note {
+      font-size: 12.5px;
+      color: var(--ink-4);
+      line-height: 1.5;
+    }
+    .try-result__note strong { color: var(--ink-3); }
+
+    .try-result__again {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 13px;
+      color: var(--ink-4);
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      text-align: left;
+      font-family: var(--font-body);
+      transition: color 0.15s;
+    }
+    .try-result__again:hover { color: var(--ink-2); }
+
+    /* ── Footer note ── */
+    .try-footer {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 0.5px solid var(--line);
+      font-size: 12px;
+      color: var(--ink-4);
+      line-height: 1.6;
+    }
+    .try-footer a { color: var(--ink-3); text-decoration: underline; text-underline-offset: 2px; }
+    .try-footer a:hover { color: var(--ink-2); }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .try-page { padding: 40px 16px; }
+      .try-h { font-size: 36px; }
+      .dropzone { padding: 36px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Top bar ──────────────────────────────────────── -->
+<header class="topbar">
+  <div class="container topbar__inner">
+    <a href="/" class="brand">
+      <img src="icon.png" alt="" class="brand__mark" />
+      <span class="brand__name">platter</span>
+    </a>
+    <nav class="topnav">
+      <a href="/#how">How it works</a>
+      <a href="/#pricing">Pricing</a>
+      <a href="https://github.com/rudraptpsingh/platter" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </nav>
+  </div>
+</header>
+
+<main class="try-page">
+  <div class="try-card">
+
+    <div class="try-eyebrow">★ zero-install beta</div>
+    <h1 class="try-h">Get something<br><em>reviewed.</em></h1>
+    <p class="try-sub">Drop a file, share the link. Your reviewer sees it at full fidelity and can approve, reject, or request changes — no account needed on either end.</p>
+
+    <!-- ── Upload form ── -->
+    <div id="uploadForm">
+
+      <!-- Drop zone -->
+      <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Drop a file to review">
+        <input class="dropzone__input" type="file" id="fileInput"
+               accept=".html,.htm,.png,.jpg,.jpeg,.gif,.svg,.webp,.pdf,.md"
+               aria-label="Choose file" />
+
+        <!-- Empty state -->
+        <div class="dropzone__empty">
+          <svg class="dropzone__icon" viewBox="0 0 40 40" fill="none">
+            <path d="M20 26V14M14 20l6-6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="5" y="5" width="30" height="30" rx="6" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <div class="dropzone__label">Drop a file here</div>
+          <div class="dropzone__hint">HTML · PNG · JPG · SVG · PDF · MD &nbsp;·&nbsp; up to 4MB</div>
+        </div>
+
+        <!-- File selected state -->
+        <div class="dropzone__file-info" id="fileInfo">
+          <div class="dropzone__file-icon" id="fileKind">—</div>
+          <div class="dropzone__file-meta">
+            <div class="dropzone__file-name" id="fileName">file.png</div>
+            <div class="dropzone__file-size" id="fileSize">0 KB</div>
+          </div>
+          <button class="dropzone__clear" id="clearFile" type="button" title="Remove file" aria-label="Remove file">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Prompt -->
+      <div class="try-field">
+        <div class="try-field__label">
+          What should reviewers look for?
+          <span class="optional">optional</span>
+        </div>
+        <textarea class="try-field__input" id="promptInput"
+                  placeholder="e.g. Does this layout communicate trust? Is the CTA clear?"
+                  rows="2" maxlength="1024"></textarea>
+      </div>
+
+      <!-- Error -->
+      <div class="try-error" id="errorMsg" role="alert"></div>
+
+      <!-- Submit -->
+      <button class="try-submit" id="submitBtn" type="button" disabled>
+        <span class="submit-spinner" id="spinner"></span>
+        <span class="submit-label">Create review link</span>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="opacity:.7">
+          <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- ── Result ── -->
+    <div class="try-result" id="result">
+      <div class="try-result__header">
+        <div class="try-result__badge">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M3 8.5l3.5 3.5 6.5-7" stroke="#6E7F58" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div>
+          <div class="try-result__title">Review link created</div>
+          <div class="try-result__subtitle">Share it with anyone — they can review without signing in</div>
+        </div>
+      </div>
+
+      <div class="link-box">
+        <span class="link-box__url" id="resultUrl"></span>
+        <button class="link-box__copy" id="copyBtn" type="button">Copy</button>
+      </div>
+
+      <a class="try-result__open" id="openLink" href="#" target="_blank" rel="noopener">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+          <path d="M6 2H2a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1V8M9 1h4v4M6.5 7.5L13 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Open review page
+      </a>
+
+      <p class="try-result__note">
+        <strong>To see the verdict:</strong> open the link above — the reviewer's decision (approved, rejected, or revision notes) is shown live on that page.
+      </p>
+
+      <button class="try-result__again" id="tryAgain" type="button">← Share another file</button>
+    </div>
+
+    <!-- ── Footer ── -->
+    <div class="try-footer">
+      Links expire in 7 days. Rate-limited to 50 links/day per browser.
+      For unlimited reviews and the full desktop workflow —
+      <a href="/#how">install platter</a>.
+      Source on <a href="https://github.com/rudraptpsingh/platter" target="_blank" rel="noreferrer">GitHub ↗</a>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  // ── Anonymous device ID (persisted in localStorage) ──────────────────
+  function getOrCreateDeviceId() {
+    const KEY = 'platter_web_device_id';
+    let id = localStorage.getItem(KEY);
+    if (!id || !/^[a-zA-Z0-9-]+$/.test(id) || id.length > 64) {
+      // Generate a UUID-like ID
+      id = 'web-' + crypto.randomUUID();
+      localStorage.setItem(KEY, id);
+    }
+    return id;
+  }
+
+  // ── Elements ──────────────────────────────────────────────────────────
+  const dropzone   = document.getElementById('dropzone');
+  const fileInput  = document.getElementById('fileInput');
+  const fileInfo   = document.getElementById('fileInfo');
+  const fileKind   = document.getElementById('fileKind');
+  const fileNameEl = document.getElementById('fileName');
+  const fileSizeEl = document.getElementById('fileSize');
+  const clearFile  = document.getElementById('clearFile');
+  const promptInput = document.getElementById('promptInput');
+  const submitBtn  = document.getElementById('submitBtn');
+  const spinner    = document.getElementById('spinner');
+  const errorMsg   = document.getElementById('errorMsg');
+  const uploadForm = document.getElementById('uploadForm');
+  const result     = document.getElementById('result');
+  const resultUrl  = document.getElementById('resultUrl');
+  const copyBtn    = document.getElementById('copyBtn');
+  const openLink   = document.getElementById('openLink');
+  const tryAgain   = document.getElementById('tryAgain');
+
+  let selectedFile = null;
+
+  // ── File size formatter ────────────────────────────────────────────────
+  function fmtSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+  }
+
+  // ── MIME / kind detection ──────────────────────────────────────────────
+  function kindFromFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const map = {
+      html: 'html', htm: 'html',
+      png: 'png', jpg: 'jpg', jpeg: 'jpg', gif: 'gif',
+      svg: 'svg', webp: 'webp',
+      pdf: 'pdf',
+      md: 'md', markdown: 'md',
+    };
+    return map[ext] || ext;
+  }
+
+  // ── Select file ────────────────────────────────────────────────────────
+  function selectFile(file) {
+    const MAX = 4 * 1024 * 1024;
+    const kind = kindFromFile(file);
+    const ALLOWED = new Set(['html','htm','png','jpg','jpeg','gif','svg','webp','pdf','md','markdown']);
+    if (!ALLOWED.has(file.name.split('.').pop().toLowerCase())) {
+      showError('Unsupported file type. Use HTML, PNG, JPG, SVG, PDF, or MD.');
+      return;
+    }
+    if (file.size === 0) { showError('File is empty.'); return; }
+    if (file.size > MAX) { showError('File exceeds the 4 MB limit.'); return; }
+
+    selectedFile = file;
+    fileKind.textContent = file.name.split('.').pop().toUpperCase().slice(0, 4);
+    fileNameEl.textContent = file.name;
+    fileSizeEl.textContent = fmtSize(file.size);
+    dropzone.classList.add('dropzone--has-file');
+    submitBtn.disabled = false;
+    clearError();
+  }
+
+  function clearSelection() {
+    selectedFile = null;
+    dropzone.classList.remove('dropzone--has-file');
+    fileInput.value = '';
+    submitBtn.disabled = true;
+  }
+
+  // ── Drag & drop ────────────────────────────────────────────────────────
+  dropzone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropzone.classList.add('dropzone--hover');
+  });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dropzone--hover'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('dropzone--hover');
+    const f = e.dataTransfer?.files?.[0];
+    if (f) selectFile(f);
+  });
+
+  // ── File input ─────────────────────────────────────────────────────────
+  fileInput.addEventListener('change', () => {
+    const f = fileInput.files?.[0];
+    if (f) selectFile(f);
+  });
+
+  clearFile.addEventListener('click', e => {
+    e.stopPropagation();
+    clearSelection();
+  });
+
+  // Keyboard accessibility for dropzone
+  dropzone.addEventListener('keydown', e => {
+    if ((e.key === 'Enter' || e.key === ' ') && !dropzone.classList.contains('dropzone--has-file')) {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  // ── Error helpers ──────────────────────────────────────────────────────
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.add('try-error--visible');
+  }
+  function clearError() {
+    errorMsg.textContent = '';
+    errorMsg.classList.remove('try-error--visible');
+  }
+
+  // ── Base64 encode ──────────────────────────────────────────────────────
+  function readAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // result is "data:<type>;base64,<data>"
+        const b64 = reader.result.split(',')[1];
+        resolve(b64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ── Submit ─────────────────────────────────────────────────────────────
+  submitBtn.addEventListener('click', async () => {
+    if (!selectedFile) return;
+    clearError();
+
+    submitBtn.disabled = true;
+    submitBtn.classList.add('try-submit--loading');
+    spinner.style.display = 'block';
+
+    try {
+      const b64 = await readAsBase64(selectedFile);
+      const kind = kindFromFile(selectedFile);
+      const prompt = promptInput.value.trim() || undefined;
+      const deviceId = getOrCreateDeviceId();
+
+      const resp = await fetch('/api/share/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: deviceId,
+          filename: selectedFile.name,
+          kind,
+          content_b64: b64,
+          prompt,
+        }),
+      });
+
+      const json = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        showError(json.error || 'Something went wrong. Try again.');
+        submitBtn.disabled = false;
+        return;
+      }
+
+      const url = json.url;
+      resultUrl.textContent = url;
+      openLink.href = url;
+
+      uploadForm.style.display = 'none';
+      result.classList.add('try-result--visible');
+
+    } catch (err) {
+      showError('Network error — are you offline?');
+      submitBtn.disabled = false;
+    } finally {
+      submitBtn.classList.remove('try-submit--loading');
+      spinner.style.display = 'none';
+    }
+  });
+
+  // ── Copy link ──────────────────────────────────────────────────────────
+  copyBtn.addEventListener('click', () => {
+    const url = resultUrl.textContent;
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(() => {
+      copyBtn.textContent = 'Copied!';
+      copyBtn.classList.add('link-box__copy--ok');
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy';
+        copyBtn.classList.remove('link-box__copy--ok');
+      }, 2200);
+    }).catch(() => {
+      // Fallback for browsers that don't support clipboard API
+      const el = document.createElement('textarea');
+      el.value = url;
+      el.style.position = 'fixed';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2200);
+    });
+  });
+
+  // ── Try again ─────────────────────────────────────────────────────────
+  tryAgain.addEventListener('click', () => {
+    clearSelection();
+    promptInput.value = '';
+    clearError();
+    result.classList.remove('try-result--visible');
+    uploadForm.style.display = '';
+    submitBtn.disabled = true;
+  });
+
+})();
+</script>
+</body>
+</html>
